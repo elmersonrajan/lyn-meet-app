@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/meeting_controller.dart';
-import '../widgets/chat_panel.dart';
 import '../widgets/control_bar.dart';
 import '../widgets/participants_list.dart';
 import '../widgets/poll_card.dart';
+import '../widgets/questions_panel.dart';
 import '../widgets/stage_view.dart';
 import '../widgets/status_banners.dart';
 import '../widgets/teacher_inset.dart';
@@ -130,7 +130,7 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
             ),
             _PanelHandle(
               open: _panelOpen,
-              unread: meeting.unreadChat,
+              unread: meeting.unansweredQuestions,
               onTap: () => setState(() => _panelOpen = !_panelOpen),
             ),
             if (_panelOpen)
@@ -146,15 +146,15 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text('Feed'),
-                              if (meeting.unreadChat > 0) ...[
+                              const Text('Q&A'),
+                              if (meeting.unansweredQuestions > 0) ...[
                                 const SizedBox(width: 6),
-                                _Dot(count: meeting.unreadChat),
+                                _Dot(count: meeting.unansweredQuestions),
                               ],
                             ],
                           ),
                         ),
-                        const Tab(text: 'Question'),
+                        const Tab(text: 'Poll'),
                       ],
                     ),
                     Expanded(
@@ -162,7 +162,7 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
                         controller: _tabs,
                         children: [
                           ParticipantsList(meeting: meeting),
-                          ChatPanel(meeting: meeting),
+                          QuestionsPanel(meeting: meeting),
                           poll == null
                               ? const _NoPoll()
                               : SingleChildScrollView(
@@ -210,7 +210,7 @@ class _PanelHandle extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              open ? 'Hide panel' : 'People, feed and questions',
+              open ? 'Hide panel' : 'People, questions and polls',
               style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 12.5),
             ),
             if (!open && unread > 0) ...[
