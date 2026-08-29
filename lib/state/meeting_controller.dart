@@ -44,7 +44,7 @@ class MeetingController extends ChangeNotifier {
         whiteboard = whiteboard ?? WhiteboardController() {
     _mediasoup = MediasoupService(_socket);
     _mediasoup.onTrack = _onRemoteTrack;
-    _mediasoup.onTrackGone = this.media.detach;
+    _mediasoup.onTrackGone = (track) => unawaited(this.media.detach(track));
   }
 
   final SocketService _socket;
@@ -57,7 +57,7 @@ class MeetingController extends ChangeNotifier {
   bool _routedAudio = false;
 
   void _onRemoteTrack(RemoteTrack track) {
-    media.attach(track);
+    unawaited(media.attach(track));
     // The first voice to arrive is what makes the routing matter. WebRTC
     // defaults to the earpiece, so without this the class plays almost
     // inaudibly from a phone lying on a desk and reads as a broken app.

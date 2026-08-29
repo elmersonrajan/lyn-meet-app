@@ -85,13 +85,26 @@ class MediaController extends ChangeNotifier {
   }
 
   /// Routes an arriving track to wherever it belongs.
-  void attach(RemoteTrack track) {
+  ///
+  /// Video goes through setSrcObject with an explicit track id rather than the
+  /// plain srcObject setter. A teacher publishing both a camera and a screen
+  /// share puts two video tracks in one stream — mediasoup gives all of a
+  /// peer's producers the same RTCP cname — and the plain setter draws
+  /// whichever the native side finds first. Naming the track is what keeps the
+  /// camera in the tile and the screen on the stage.
+  Future<void> attach(RemoteTrack track) async {
     switch (track.slot) {
       case TrackSlot.camera:
-        cameraRenderer.srcObject = track.stream;
+        await cameraRenderer.setSrcObject(
+          stream: track.stream,
+          trackId: track.track.id,
+        );
         _hasCamera = true;
       case TrackSlot.screen:
-        screenRenderer.srcObject = track.stream;
+        await screenRenderer.setSrcObject(
+          stream: track.stream,
+          trackId: track.track.id,
+        );
         _hasScreen = true;
       case TrackSlot.audio:
         _audioTracks[track.producerId] = track;
@@ -100,13 +113,13 @@ class MediaController extends ChangeNotifier {
   }
 
   /// Drops a track whose producer has gone.
-  void detach(RemoteTrack track) {
+  Future<void> detach(RemoteTrack track) async {
     switch (track.slot) {
       case TrackSlot.camera:
-        cameraRenderer.srcObject = null;
+        await cameraRenderer.setSrcObject(stream: null);
         _hasCamera = false;
       case TrackSlot.screen:
-        screenRenderer.srcObject = null;
+        await screenRenderer.setSrcObject(stream: null);
         _hasScreen = false;
       case TrackSlot.audio:
         _audioTracks.remove(track.producerId);
