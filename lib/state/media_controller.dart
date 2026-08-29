@@ -22,6 +22,21 @@ class MediaController extends ChangeNotifier {
   bool _hasCamera = false;
   bool _hasScreen = false;
 
+  /// Which producer currently owns each renderer.
+  ///
+  /// Attaching and detaching are both asynchronous and both fire without being
+  /// awaited, so a track being torn down can finish after the track replacing
+  /// it has already been attached — clearing a renderer that had just been
+  /// filled, and leaving the tile stuck on nothing. A detach that no longer
+  /// owns its slot is ignored.
+  String? _cameraProducerId;
+  String? _screenProducerId;
+
+  /// Whose camera is on the tile, so the room can look up whether they have
+  /// simply switched it off.
+  String? _cameraPeerId;
+  String? get cameraPeerId => _cameraPeerId;
+
   /// Whether the microphone is currently sending.
   bool _micOn = false;
 
@@ -95,36 +110,54 @@ class MediaController extends ChangeNotifier {
   Future<void> attach(RemoteTrack track) async {
     switch (track.slot) {
       case TrackSlot.camera:
+        // Claimed before the await, so a detach racing this one can see that
+        // the slot has already moved on.
+        _cameraProducerId = track.producerId;
+        _cameraPeerId = track.peerId;
+        _hasCamera = true;
+        notifyListeners();
         await cameraRenderer.setSrcObject(
           stream: track.stream,
           trackId: track.track.id,
         );
-        _hasCamera = true;
       case TrackSlot.screen:
+        _screenProducerId = track.producerId;
+        _hasScreen = true;
+        notifyListeners();
         await screenRenderer.setSrcObject(
           stream: track.stream,
           trackId: track.track.id,
         );
-        _hasScreen = true;
       case TrackSlot.audio:
         _audioTracks[track.producerId] = track;
+        notifyListeners();
     }
-    notifyListeners();
   }
 
   /// Drops a track whose producer has gone.
+  ///
+  /// Does nothing when the slot has already been claimed by a newer track:
+  /// that is the ordinary case of a teacher republishing their camera, where
+  /// the old producer is torn down around the same moment the new one arrives.
   Future<void> detach(RemoteTrack track) async {
     switch (track.slot) {
       case TrackSlot.camera:
-        await cameraRenderer.setSrcObject(stream: null);
+        if (_cameraProducerId != track.producerId) return;
+        _cameraProducerId = null;
+        _cameraPeerId = null;
         _hasCamera = false;
+        notifyListeners();
+        await cameraRenderer.setSrcObject(stream: null);
       case TrackSlot.screen:
-        await screenRenderer.setSrcObject(stream: null);
+        if (_screenProducerId != track.producerId) return;
+        _screenProducerId = null;
         _hasScreen = false;
+        notifyListeners();
+        await screenRenderer.setSrcObject(stream: null);
       case TrackSlot.audio:
         _audioTracks.remove(track.producerId);
+        notifyListeners();
     }
-    notifyListeners();
   }
 
   void setMicOn(bool value) {

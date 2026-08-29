@@ -126,6 +126,35 @@ class MeetingController extends ChangeNotifier {
   /// computes it the same way.
   bool get micLocked => !hasStaff;
 
+  /// Whether the camera on the tile is switched off rather than frozen.
+  ///
+  /// Turning a camera off **pauses** the producer; it does not close it. No
+  /// producer-closed is broadcast, the frames simply stop, and a renderer left
+  /// pointing at that track holds its last frame indefinitely — which is
+  /// exactly what a stuck picture of the teacher looks like. Room state is the
+  /// only thing that says otherwise, so the tile is driven from videoOff
+  /// rather than from whether a track happens to be attached.
+  bool get cameraOff {
+    final peerId = media.cameraPeerId;
+    if (peerId == null) return false;
+    for (final peer in _participants) {
+      if (peer.id == peerId) return peer.videoOff || peer.disconnected;
+    }
+    // Their track is still attached but they are no longer in the room, so
+    // whatever is on screen is certainly stale.
+    return true;
+  }
+
+  /// The name against the camera tile, when there is one.
+  String? get cameraPeerName {
+    final peerId = media.cameraPeerId;
+    if (peerId == null) return null;
+    for (final peer in _participants) {
+      if (peer.id == peerId) return peer.name;
+    }
+    return null;
+  }
+
   /// The poll a student should be looking at: the newest one still open, or
   /// the newest one closed recently enough that the answer is still news.
   Poll? get currentPoll {
@@ -353,6 +382,28 @@ class MeetingController extends ChangeNotifier {
     sub('producer-closed', (data) {
       if (data is! Map || data['producerId'] == null) return;
       _mediasoup.removeProducer(data['producerId'].toString());
+    });
+
+    // A camera or microphone switched off without the producer being closed.
+    // The participants broadcast that accompanies this carries the same fact,
+    // but this one names the source, so the tile can change the moment the
+    // teacher taps rather than after a whole-room refresh.
+    sub('media-state', (data) {
+      if (data is! Map) return;
+      final peerId = (data['peerId'] ?? '').toString();
+      final source = (data['source'] ?? '').toString();
+      final paused = data['paused'] == true;
+      final index = _participants.indexWhere((p) => p.id == peerId);
+      if (index == -1) return;
+
+      final next = [..._participants];
+      next[index] = switch (source) {
+        'video' => next[index].copyWith(videoOff: paused),
+        'audio' => next[index].copyWith(audioMuted: paused),
+        _ => next[index],
+      };
+      _participants = next;
+      notifyListeners();
     });
 
     // --- the microphone, which the server controls ---------------------------
