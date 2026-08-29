@@ -335,7 +335,7 @@ class MediasoupService {
     }
   }
 
-  void _onConsumer(Consumer consumer, dynamic accept) {
+  Future<void> _onConsumer(Consumer consumer, dynamic accept) async {
     try {
       final appData = consumer.appData;
       final source = (appData['source'] ?? '').toString();
@@ -347,13 +347,42 @@ class MediasoupService {
               ? TrackSlot.audio
               : TrackSlot.camera;
 
+      // One stream per consumer, built here rather than using consumer.stream.
+      //
+      // The package resolves a consumer's stream by looking up the RTCP cname,
+      // and mediasoup gives every producer from one peer the same cname. So a
+      // teacher's camera and their screen share arrive in a single MediaStream
+      // holding two video tracks — and RTCVideoView renders whichever comes
+      // first, the camera. The screen share was invisible while a coordinator's
+      // worked, purely because a coordinator has no camera to collide with.
+      final stream = await createLocalMediaStream('lynmeet_${consumer.id}');
+      await stream.addTrack(consumer.track);
+
       final remote = RemoteTrack(
         producerId: consumer.producerId,
         peerId: peerId,
         slot: slot,
-        stream: consumer.stream,
+        stream: stream,
         track: consumer.track,
       );
+
+      // Drop whatever this peer had in the same slot before.
+      //
+      // A teacher who reconnects publishes a fresh camera, and the server does
+      // not always announce the dead one as closed — a producer lost to a
+      // disconnect has no replacement to point at. Without this the old track
+      // stays attached and the teacher comes back to the meeting while their
+      // tile stays frozen on a track that will never carry another frame. The
+      // web client carries the same guard for the same reason.
+      for (final stale in _tracks.entries
+          .where((e) =>
+              e.value.peerId == peerId &&
+              e.value.slot == slot &&
+              e.key != consumer.producerId)
+          .map((e) => e.key)
+          .toList()) {
+        removeProducer(stale);
+      }
 
       _consumers[consumer.id] = consumer;
       _tracks[consumer.producerId] = remote;
@@ -390,7 +419,13 @@ class MediasoupService {
       } catch (_) {}
     }
 
-    if (track != null) onTrackGone?.call(track);
+    if (track != null) {
+      // Detached first, so no renderer is still pointing at the stream when it
+      // is disposed. These streams are ours — built per consumer in
+      // _onConsumer — so nothing else can be holding one.
+      onTrackGone?.call(track);
+      track.stream.dispose();
+    }
   }
 
   /// Everything this peer had, gone. Called when someone leaves the room.
@@ -410,6 +445,11 @@ class MediasoupService {
       } catch (_) {}
     }
     _consumers.clear();
+    for (final track in _tracks.values) {
+      try {
+        await track.stream.dispose();
+      } catch (_) {}
+    }
     _tracks.clear();
     _claimed.clear();
 

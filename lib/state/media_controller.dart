@@ -25,10 +25,6 @@ class MediaController extends ChangeNotifier {
   /// Whether the microphone is currently sending.
   bool _micOn = false;
 
-  /// Whether the student is allowed to unmute at all. The server locks the
-  /// microphone whenever no teacher or coordinator is in the room.
-  bool _micLocked = false;
-
   /// What to tell the student about the state of their microphone — the
   /// server sends the wording, so the app and the browser say the same thing.
   String? _micNotice;
@@ -41,7 +37,6 @@ class MediaController extends ChangeNotifier {
   bool get hasCamera => _hasCamera;
   bool get hasScreen => _hasScreen;
   bool get micOn => _micOn;
-  bool get micLocked => _micLocked;
   bool get micAvailable => _micStream != null && _micError == null;
   String? get micNotice => _micNotice;
   String? get micError => _micError;
@@ -122,15 +117,6 @@ class MediaController extends ChangeNotifier {
   void setMicOn(bool value) {
     if (_micOn == value) return;
     _micOn = value;
-    notifyListeners();
-  }
-
-  /// Applies a lock from the server. Locking always mutes: the student is not
-  /// merely prevented from unmuting later, they are silenced now.
-  void setMicLocked(bool locked, {String? notice}) {
-    _micLocked = locked;
-    if (notice != null) _micNotice = notice;
-    if (locked) _micOn = false;
     notifyListeners();
   }
 

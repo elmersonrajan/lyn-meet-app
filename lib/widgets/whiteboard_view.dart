@@ -17,17 +17,29 @@ class WhiteboardView extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        return Container(
-          color: Colors.white,
-          child: controller.isEmpty
-              ? const _EmptyBoard()
-              : CustomPaint(
-                  painter: _WhiteboardPainter(
-                    strokes: controller.strokes,
-                    revision: controller.revision,
-                  ),
-                  size: Size.infinite,
-                ),
+        // The board keeps the teacher's shape and is centred in whatever space
+        // it is given, with the surround left dark. Filling a portrait phone
+        // with a landscape board would stretch the handwriting; letterboxing
+        // costs some height and keeps it true.
+        return ColoredBox(
+          color: const Color(0xff0d1520),
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: controller.boardAspect,
+              child: Container(
+                color: Colors.white,
+                child: controller.isEmpty
+                    ? const _EmptyBoard()
+                    : CustomPaint(
+                        painter: _WhiteboardPainter(
+                          strokes: controller.strokes,
+                          revision: controller.revision,
+                        ),
+                        size: Size.infinite,
+                      ),
+              ),
+            ),
+          ),
         );
       },
     );

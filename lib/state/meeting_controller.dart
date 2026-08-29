@@ -13,6 +13,7 @@ import '../models/stroke.dart';
 import '../services/mediasoup_service.dart';
 import '../services/meeting_link.dart';
 import '../services/socket_service.dart';
+import 'audio_route.dart';
 import 'media_controller.dart';
 import 'whiteboard_controller.dart';
 
@@ -42,14 +43,29 @@ class MeetingController extends ChangeNotifier {
         media = media ?? MediaController(),
         whiteboard = whiteboard ?? WhiteboardController() {
     _mediasoup = MediasoupService(_socket);
-    _mediasoup.onTrack = this.media.attach;
+    _mediasoup.onTrack = _onRemoteTrack;
     _mediasoup.onTrackGone = this.media.detach;
   }
 
   final SocketService _socket;
   final MediaController media;
   final WhiteboardController whiteboard;
+  final AudioRouteController audio = AudioRouteController();
   late final MediasoupService _mediasoup;
+
+  /// Whether the loudspeaker has been claimed yet this session.
+  bool _routedAudio = false;
+
+  void _onRemoteTrack(RemoteTrack track) {
+    media.attach(track);
+    // The first voice to arrive is what makes the routing matter. WebRTC
+    // defaults to the earpiece, so without this the class plays almost
+    // inaudibly from a phone lying on a desk and reads as a broken app.
+    if (track.slot == TrackSlot.audio && !_routedAudio) {
+      _routedAudio = true;
+      unawaited(audio.applyDefault());
+    }
+  }
 
   /// Handler removers, called on the way out. Collected rather than re-derived
   /// so teardown cannot miss one and leave a dead controller listening.
@@ -99,6 +115,16 @@ class MeetingController extends ChangeNotifier {
   /// Whether a teacher or coordinator is in the room. The microphone depends
   /// on it, so the control bar needs to know.
   bool get hasStaff => _participants.any((p) => p.isStaff && !p.disconnected);
+
+  /// Whether the student may unmute at all.
+  ///
+  /// Derived from who is in the room, never stored. The server broadcasts
+  /// `mic-locked` when the last teacher or coordinator leaves but sends
+  /// nothing when one returns — there is no unlock event to wait for. Holding
+  /// this as a flag meant the microphone stayed locked for the rest of the
+  /// lesson once staff had dropped out even for a moment. The web client
+  /// computes it the same way.
+  bool get micLocked => !hasStaff;
 
   /// The poll a student should be looking at: the newest one still open, or
   /// the newest one closed recently enough that the answer is still news.
@@ -268,16 +294,29 @@ class MeetingController extends ChangeNotifier {
       notifyListeners();
     });
 
+    // A fresh join broadcasts only peer-joined — there is no accompanying
+    // participants snapshot — so the list has to be maintained here or the
+    // room silently stops growing. That cost more than a stale list: a teacher
+    // rejoining after their grace window expired arrives as a new peer, so
+    // ignoring this event left the app believing no staff were present, and
+    // the microphone locked for the rest of the lesson.
+    sub('peer-joined', (data) {
+      if (data is! Map) return;
+      _upsertPeer(Peer.fromMap(Map<String, dynamic>.from(data)));
+    });
+
     sub('peer-left', (data) {
-      if (data is Map && data['id'] != null) {
-        _mediasoup.removePeer(data['id'].toString());
-      }
+      if (data is! Map || data['id'] == null) return;
+      final id = data['id'].toString();
+      _mediasoup.removePeer(id);
+      _removePeer(id);
     });
 
     sub('peer-removed', (data) {
-      if (data is Map && data['peerId'] != null) {
-        _mediasoup.removePeer(data['peerId'].toString());
-      }
+      if (data is! Map || data['peerId'] == null) return;
+      final id = data['peerId'].toString();
+      _mediasoup.removePeer(id);
+      _removePeer(id);
     });
 
     sub('active-speakers', (data) {
@@ -295,9 +334,11 @@ class MeetingController extends ChangeNotifier {
       notifyListeners();
     });
 
+    // The other way a teacher comes back: inside the grace window, into their
+    // original peer rather than a new one.
     sub('peer-reconnected', (data) {
-      if (data is Map && data['role'] == 'teacher') _teacherAway = false;
-      notifyListeners();
+      if (data is! Map) return;
+      _upsertPeer(Peer.fromMap(Map<String, dynamic>.from(data)));
     });
 
     // --- media --------------------------------------------------------------
@@ -317,17 +358,15 @@ class MeetingController extends ChangeNotifier {
     // --- the microphone, which the server controls ---------------------------
     sub('joined-muted', (data) {
       final map = data is Map ? Map<String, dynamic>.from(data) : const {};
-      media.setMicLocked(
-        map['locked'] == true,
-        notice: map['reason']?.toString(),
-      );
+      media.setMicNotice(map['reason']?.toString());
       media.setMicOn(false);
     });
 
     sub('mic-locked', (data) {
       final map = data is Map ? Map<String, dynamic>.from(data) : const {};
       _mediasoup.pauseMicLocally();
-      media.setMicLocked(true, notice: map['reason']?.toString());
+      media.setMicOn(false);
+      media.setMicNotice(map['reason']?.toString());
     });
 
     sub('force-mute', (_) {
@@ -457,6 +496,29 @@ class MeetingController extends ChangeNotifier {
     }));
   }
 
+  /// Adds or replaces one person in the room.
+  ///
+  /// A teacher arriving by any route — a new join, or a reconnect into their
+  /// old peer — clears the "teacher lost connection" banner, since the thing
+  /// the banner reports is no longer true.
+  void _upsertPeer(Peer peer) {
+    final next = [..._participants];
+    final index = next.indexWhere((p) => p.id == peer.id);
+    if (index == -1) {
+      next.add(peer);
+    } else {
+      next[index] = peer;
+    }
+    _participants = next;
+    if (peer.isTeacher && !peer.disconnected) _teacherAway = false;
+    notifyListeners();
+  }
+
+  void _removePeer(String peerId) {
+    _participants = _participants.where((p) => p.id != peerId).toList();
+    notifyListeners();
+  }
+
   void _upsertPoll(Poll poll) {
     final index = _polls.indexWhere((p) => p.id == poll.id);
     if (index == -1) {
@@ -486,7 +548,7 @@ class MeetingController extends ChangeNotifier {
   /// Unmutes or mutes. Refuses while the server has the microphone locked,
   /// which it does whenever no teacher or coordinator is present.
   Future<void> toggleMic() async {
-    if (media.micLocked || !media.micAvailable) return;
+    if (micLocked || !media.micAvailable) return;
     final next = !media.micOn;
     try {
       await _mediasoup.setMicEnabled(next);
@@ -609,6 +671,7 @@ class MeetingController extends ChangeNotifier {
     unawaited(_teardown());
     media.dispose();
     whiteboard.dispose();
+    audio.dispose();
     super.dispose();
   }
 }

@@ -22,6 +22,25 @@ class WhiteboardController extends ChangeNotifier {
   int get revision => _revision;
   bool get isEmpty => _strokes.isEmpty;
 
+  /// The shape of the teacher's canvas, width over height.
+  ///
+  /// This matters more than it looks. The teacher writes on a wide laptop
+  /// canvas; a phone held upright is tall. Stretching one into the other turns
+  /// round letters into ovals and pulls a diagram out of proportion — the
+  /// board was legible but wrong. Painting into this ratio and letterboxing
+  /// the remainder keeps the writing the shape the teacher made it.
+  ///
+  /// Taken from the strokes themselves, since every stroke carries the canvas
+  /// it was drawn on, and defaulting to 16:9 for an empty board.
+  double get boardAspect {
+    for (final stroke in _strokes.reversed) {
+      if (stroke.canvasWidth > 0 && stroke.canvasHeight > 0) {
+        return stroke.canvasWidth / stroke.canvasHeight;
+      }
+    }
+    return 16 / 9;
+  }
+
   void replaceAll(List<Stroke> strokes) {
     _strokes
       ..clear()
