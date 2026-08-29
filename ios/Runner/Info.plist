@@ -45,5 +45,52 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- Shown in the permission prompt before the first unmute. Students join
+	     muted, so this is not asked at launch. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LYN MEET uses your microphone only when you unmute to speak in class.</string>
+
+	<!-- The lesson has to keep playing when the screen locks or the student
+	     switches away to take a note. Without the audio mode iOS suspends the
+	     app and the class goes silent. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
+	</array>
+
+	<!-- The classroom server is reached over plain http because it presents a
+	     self-signed certificate a native client will not accept. The exception
+	     is scoped to that one host; everything else still requires TLS.
+	     Delete this block once the backend has a real domain and certificate. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>59.96.57.40</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
+
+	<!-- The link a teacher shares with the class. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.lyn.lynmeet</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lynmeet</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -1,20 +1,31 @@
 name: lynmeet
-description: "A new Flutter project."
+description: "LYN MEET — student client for the classroom SFU."
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
   sdk: ^3.10.4
 
-
 dependencies:
   flutter:
     sdk: flutter
+
+  # WebRTC transport + the mediasoup signalling dialect the backend speaks.
+  # mediasoup_client_flutter is abandoned (Dart 2 only); this is the maintained
+  # fork that tracks flutter_webrtc 1.x.
+  mediasfu_mediasoup_client: ^0.1.4
+  flutter_webrtc: ^1.6.0
+
+  socket_io_client: ^3.1.6
+  provider: ^6.1.5
+  wakelock_plus: ^1.6.1
+  shared_preferences: ^2.3.0
+  app_links: ^6.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-
 
 flutter:
   uses-material-design: true
