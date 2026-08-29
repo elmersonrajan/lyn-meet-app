@@ -103,6 +103,9 @@ class MediasoupService {
   /// Fires when a producer went away and its track should be dropped.
   void Function(RemoteTrack track)? onTrackGone;
 
+  /// Fires on every ICE state change, with "send" or "recv" and the new state.
+  void Function(String direction, String state)? onTransportState;
+
   /// Completes once the microphone producer exists on the server.
   final Completer<void> _micReady = Completer<void>();
 
@@ -229,12 +232,16 @@ class MediasoupService {
     }
 
     transport.on('connectionstatechange', (Map data) {
-      final state = data['connectionState'] ?? data['state'];
+      final state = (data['connectionState'] ?? data['state'] ?? '').toString();
       debugPrint('[Mediasoup] $direction transport $state');
       _socket.log('transport $direction $state');
+      // The only honest measure of whether the lesson is arriving. Reported
+      // rather than merely logged: ICE can fail while chat and the whiteboard
+      // keep working perfectly, so nothing else on screen changes and the
+      // student is left watching a still picture with no idea why.
+      onTransportState?.call(direction, state);
       if (state == 'failed') {
-        // Worth surfacing: this is the ICE FAILED case the README describes,
-        // and on a phone it almost always means TURN is unreachable.
+        // On a phone this is almost always TURN being unreachable.
         _socket.log('ICE FAILED on $direction — check TURN reachability');
       }
     });

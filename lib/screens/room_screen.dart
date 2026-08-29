@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/poll.dart';
 import '../state/meeting_controller.dart';
 import '../widgets/audio_route_button.dart';
+import '../widgets/connection_indicator.dart';
 import '../widgets/control_bar.dart';
 import '../widgets/participants_list.dart';
 import '../widgets/poll_card.dart';
@@ -120,6 +121,7 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
             ],
           ),
           actions: [
+            Center(child: ConnectionIndicator(status: meeting.connection)),
             // A written question is easy to miss behind a closed panel, and it
             // is the one thing in the room that is waiting on this student.
             IconButton(
@@ -141,6 +143,9 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
         ),
         body: Column(
           children: [
+            // Above the room's own notices: a connection that has dropped
+            // explains every other thing that looks wrong, so it is read first.
+            ConnectionBanner(status: meeting.connection),
             StatusBanner(meeting: meeting),
             Expanded(
               child: sideBySide

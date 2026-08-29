@@ -14,6 +14,7 @@ import '../services/mediasoup_service.dart';
 import '../services/meeting_link.dart';
 import '../services/socket_service.dart';
 import 'audio_route.dart';
+import 'connection_status.dart';
 import 'media_controller.dart';
 import 'whiteboard_controller.dart';
 
@@ -45,12 +46,14 @@ class MeetingController extends ChangeNotifier {
     _mediasoup = MediasoupService(_socket);
     _mediasoup.onTrack = _onRemoteTrack;
     _mediasoup.onTrackGone = (track) => unawaited(this.media.detach(track));
+    _mediasoup.onTransportState = connection.setTransportState;
   }
 
   final SocketService _socket;
   final MediaController media;
   final WhiteboardController whiteboard;
   final AudioRouteController audio = AudioRouteController();
+  final ConnectionStatus connection = ConnectionStatus();
   late final MediasoupService _mediasoup;
 
   /// Whether the loudspeaker has been claimed yet this session.
@@ -540,6 +543,14 @@ class MeetingController extends ChangeNotifier {
       _finish(EndReason.sessionClosed, map['reason']?.toString());
     });
 
+    // --- how well any of this is arriving -------------------------------------
+    // Signalling going down is invisible otherwise: video keeps painting its
+    // last frame and the board keeps whatever was already drawn, so the app
+    // looks fine while the class has stopped.
+    connection.setSocketUp(true);
+    sub('connect', (_) => connection.setSocketUp(true));
+    sub('disconnect', (_) => connection.setSocketUp(false));
+
     // Socket.IO retries on its own; this only ends the class once it has
     // genuinely given up, so a lift or a tunnel does not eject the student.
     _subscriptions.add(_socket.on('reconnect_failed', (_) {
@@ -714,6 +725,7 @@ class MeetingController extends ChangeNotifier {
     _recording = RecordingState.idle;
     _stageMode = 'whiteboard';
     whiteboard.clear();
+    connection.reset();
     notifyListeners();
   }
 
@@ -723,6 +735,7 @@ class MeetingController extends ChangeNotifier {
     media.dispose();
     whiteboard.dispose();
     audio.dispose();
+    connection.dispose();
     super.dispose();
   }
 }
