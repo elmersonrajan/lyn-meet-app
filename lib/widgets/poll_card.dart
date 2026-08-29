@@ -31,6 +31,12 @@ class _PollCardState extends State<PollCard> {
   bool _sending = false;
   String? _error;
 
+  /// What the student has ticked but not yet sent.
+  ///
+  /// Held here rather than sent per tap because a vote is one set: the server
+  /// takes it once and refuses a second, so there is a deliberate submit step.
+  final Set<int> _picked = {};
+
   @override
   void initState() {
     super.initState();
@@ -46,12 +52,20 @@ class _PollCardState extends State<PollCard> {
     super.dispose();
   }
 
-  Future<void> _vote(int index) async {
+  void _toggle(int index) {
+    setState(() {
+      if (!_picked.remove(index)) _picked.add(index);
+      _error = null;
+    });
+  }
+
+  Future<void> _submit() async {
     setState(() {
       _sending = true;
       _error = null;
     });
-    final error = await widget.meeting.vote(widget.poll.id, index);
+    final picks = _picked.toList()..sort();
+    final error = await widget.meeting.vote(widget.poll.id, picks);
     if (!mounted) return;
     setState(() {
       _sending = false;
@@ -86,19 +100,49 @@ class _PollCardState extends State<PollCard> {
               height: 1.3,
             ),
           ),
+          if (canAnswer) ...[
+            const SizedBox(height: 6),
+            const Text(
+              // The number of correct options is never revealed while the poll
+              // runs — being told "pick two" would be most of the answer.
+              'Choose every option you think is right.',
+              style: TextStyle(color: Color(0xff8b9cb3), fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 16),
           for (var i = 0; i < poll.options.length; i++)
             _OptionTile(
               poll: poll,
               index: i,
               enabled: canAnswer,
-              onTap: () => _vote(i),
+              picked: _picked.contains(i),
+              onTap: () => _toggle(i),
             ),
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(
               _error!,
               style: const TextStyle(color: Color(0xffff8b8b), fontSize: 12),
+            ),
+          ],
+          if (canAnswer) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _sending || _picked.isEmpty ? null : _submit,
+                child: _sending
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        _picked.isEmpty
+                            ? 'Choose an option'
+                            : 'Send ${_picked.length == 1 ? 'answer' : '${_picked.length} answers'}',
+                      ),
+              ),
             ),
           ],
           const SizedBox(height: 8),
@@ -160,19 +204,25 @@ class _OptionTile extends StatelessWidget {
     required this.poll,
     required this.index,
     required this.enabled,
+    required this.picked,
     required this.onTap,
   });
 
   final Poll poll;
   final int index;
   final bool enabled;
+
+  /// Ticked but not yet sent.
+  final bool picked;
+
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final isMine = poll.myVote == index;
-    final isCorrect = poll.correctIndex == index;
-    final revealed = poll.closed && poll.correctIndex != null;
+    // Chosen: either ticked right now, or already sent to the server.
+    final isMine = picked || poll.isMyPick(index);
+    final isCorrect = poll.isCorrectOption(index);
+    final revealed = poll.revealed;
 
     // Colour only says something once there is something true to say. While
     // the poll is open, a picked option is merely picked — marking it right or
@@ -229,14 +279,26 @@ class _OptionTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   child: Row(
                     children: [
-                      Text(
-                        String.fromCharCode(65 + index),
-                        style: const TextStyle(
-                          color: Color(0xff8b9cb3),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                      // A tick box, not a radio: several options can be right,
+                      // and the control has to say so before the student
+                      // assumes picking a second one replaces the first.
+                      if (enabled)
+                        Icon(
+                          picked ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 19,
+                          color: picked
+                              ? const Color(0xff5b9bff)
+                              : const Color(0xff6b7a8d),
+                        )
+                      else
+                        Text(
+                          String.fromCharCode(65 + index),
+                          style: const TextStyle(
+                            color: Color(0xff8b9cb3),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -274,7 +336,7 @@ class _Footer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (poll.closed && poll.correctIndex != null) {
+    if (poll.revealed) {
       final right = poll.gotItRight;
       return Row(
         children: [

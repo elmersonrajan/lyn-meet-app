@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../config/env.dart';
-import '../models/chat_message.dart';
 import '../models/peer.dart';
 import '../models/poll.dart';
+import '../models/question.dart';
 import '../models/producer_info.dart';
 import '../models/recording_state.dart';
 import '../models/stroke.dart';
@@ -64,7 +64,7 @@ class MeetingController extends ChangeNotifier {
   Peer? _me;
 
   List<Peer> _participants = const [];
-  final List<ChatMessage> _chat = [];
+  final List<Question> _questions = [];
   final List<Poll> _polls = [];
   Set<String> _activeSpeakers = const {};
 
@@ -87,7 +87,7 @@ class MeetingController extends ChangeNotifier {
   String get displayName => _displayName;
   Peer? get me => _me;
   List<Peer> get participants => _participants;
-  List<ChatMessage> get chat => List.unmodifiable(_chat);
+  List<Question> get questions => List.unmodifiable(_questions);
   List<Poll> get polls => List.unmodifiable(_polls);
   Set<String> get activeSpeakers => _activeSpeakers;
   String get stageMode => _stageMode;
@@ -111,13 +111,19 @@ class MeetingController extends ChangeNotifier {
     return since < const Duration(minutes: 2).inMilliseconds ? last : null;
   }
 
-  /// The number of unseen announcements, for the chat tab badge.
-  int _lastReadChat = 0;
-  int get unreadChat => (_chat.length - _lastReadChat).clamp(0, 999);
-  void markChatRead() {
-    _lastReadChat = _chat.length;
-    notifyListeners();
+  /// The newest question still taking answers, which is the one a student
+  /// needs to see. Older ones stay readable in the panel.
+  Question? get openQuestion {
+    for (final question in _questions.reversed) {
+      if (question.isOpen) return question;
+    }
+    return null;
   }
+
+  /// Questions the student has not answered yet, for the tab badge. A closed
+  /// question is not owed an answer, so it does not count.
+  int get unansweredQuestions =>
+      _questions.where((q) => q.isOpen && !q.answered).length;
 
   /// Joins a class.
   ///
@@ -221,10 +227,9 @@ class MeetingController extends ChangeNotifier {
       _me = Peer.fromMap(Map<String, dynamic>.from(ack['peer'] as Map));
     }
     _participants = Peer.listFrom(ack['participants']);
-    _chat
+    _questions
       ..clear()
-      ..addAll(ChatMessage.listFrom(ack['chat']));
-    _lastReadChat = _chat.length;
+      ..addAll(Question.listFrom(ack['questions']));
     _polls
       ..clear()
       ..addAll(Poll.listFrom(ack['polls']));
@@ -345,9 +350,31 @@ class MeetingController extends ChangeNotifier {
 
     sub('whiteboard-clear', (_) => whiteboard.clear());
 
-    sub('chat-message', (data) {
+    // --- written questions ---------------------------------------------------
+    sub('question-asked', (data) {
       if (data is! Map) return;
-      _chat.add(ChatMessage.fromMap(Map<String, dynamic>.from(data)));
+      _upsertQuestion(Question.fromMap(Map<String, dynamic>.from(data)));
+    });
+
+    // Only the count reaches students. The answers themselves go to a separate
+    // socket.io room that students are not in, so nobody can copy and nobody
+    // is wrong in front of the class.
+    sub('question-answer-count', (data) {
+      if (data is! Map) return;
+      final id = (data['questionId'] ?? '').toString();
+      final count = (data['answerCount'] as num?)?.toInt() ?? 0;
+      final index = _questions.indexWhere((q) => q.id == id);
+      if (index == -1) return;
+      _questions[index] = _questions[index].withAnswerCount(count);
+      notifyListeners();
+    });
+
+    sub('question-closed', (data) {
+      if (data is! Map) return;
+      final id = (data['questionId'] ?? '').toString();
+      final index = _questions.indexWhere((q) => q.id == id);
+      if (index == -1) return;
+      _questions[index] = _questions[index].closedNow();
       notifyListeners();
     });
 
@@ -360,12 +387,13 @@ class MeetingController extends ChangeNotifier {
     sub('poll-ended', (data) {
       if (data is! Map) return;
       final closed = Poll.fromMap(Map<String, dynamic>.from(data));
-      // The closing broadcast carries counts and the correct answer but no
+      // The closing broadcast carries counts and the correct set but no
       // myVote — it is one payload sent to the whole room. Carrying our own
-      // vote across is what lets the result screen say whether we were right.
+      // choices across is what lets the result screen say whether we were
+      // right.
       final existing = _polls.where((p) => p.id == closed.id);
-      final mine = existing.isEmpty ? null : existing.first.myVote;
-      _upsertPoll(mine == null ? closed : closed.withMyVote(mine));
+      final mine = existing.isEmpty ? null : existing.first.myVotes;
+      _upsertPoll(mine == null ? closed : closed.withMyVotes(mine));
     });
 
     sub('poll-vote-count', (data) {
@@ -439,6 +467,20 @@ class MeetingController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _upsertQuestion(Question question) {
+    final index = _questions.indexWhere((q) => q.id == question.id);
+    if (index == -1) {
+      _questions.add(question);
+    } else {
+      // A re-broadcast carries no myAnswer — it goes to the whole room — so
+      // the student's own answer is preserved rather than blanked.
+      final mine = _questions[index].myAnswer;
+      _questions[index] =
+          mine == null ? question : question.withMyAnswer(mine);
+    }
+    notifyListeners();
+  }
+
   // --- what a student can actually do ----------------------------------------
 
   /// Unmutes or mutes. Refuses while the server has the microphone locked,
@@ -466,17 +508,48 @@ class MeetingController extends ChangeNotifier {
     }
   }
 
-  /// Answers the current poll. One vote only — the server refuses a second,
-  /// so the local poll is updated immediately to take the buttons away.
-  Future<String?> vote(String pollId, int optionIndex) async {
+  /// Answers the current poll.
+  ///
+  /// A vote is a whole set, submitted once — the server refuses a second, so
+  /// the local poll is updated immediately to take the buttons away. The
+  /// server de-duplicates and sorts the picks; sending them in tap order is
+  /// fine.
+  Future<String?> vote(String pollId, List<int> optionIndexes) async {
+    if (optionIndexes.isEmpty) return 'Choose at least one option';
     try {
       await _socket.emitAck('vote-poll', {
         'pollId': pollId,
-        'optionIndex': optionIndex,
+        'optionIndexes': optionIndexes,
       });
       final index = _polls.indexWhere((p) => p.id == pollId);
       if (index != -1) {
-        _polls[index] = _polls[index].withMyVote(optionIndex);
+        _polls[index] = _polls[index].withMyVotes(optionIndexes);
+        notifyListeners();
+      }
+      return null;
+    } catch (err) {
+      return err is SocketAckException ? err.message : 'Could not send your answer';
+    }
+  }
+
+  /// Answers a written question.
+  ///
+  /// Can be sent again to reword: the server replaces rather than appends, so
+  /// staff see one answer per student and the student can fix a typo until the
+  /// question closes.
+  Future<String?> answerQuestion(String questionId, String text) async {
+    final body = text.trim();
+    if (body.isEmpty) return 'Write an answer first';
+    try {
+      final ack = await _socket.emitAck('answer-question', {
+        'questionId': questionId,
+        'text': body,
+      });
+      final index = _questions.indexWhere((q) => q.id == questionId);
+      if (index != -1 && ack['answer'] is Map) {
+        _questions[index] = _questions[index].withMyAnswer(
+          Answer.fromMap(Map<String, dynamic>.from(ack['answer'] as Map)),
+        );
         notifyListeners();
       }
       return null;
@@ -520,7 +593,7 @@ class MeetingController extends ChangeNotifier {
     _phase = MeetingPhase.idle;
     _error = null;
     _participants = const [];
-    _chat.clear();
+    _questions.clear();
     _polls.clear();
     _activeSpeakers = const {};
     _handRaised = false;

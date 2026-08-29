@@ -19,14 +19,26 @@ The limits are the server's, not the app's — they are enforced in
 | Speak | yes — **joins muted**, and locked entirely when no staff are present |
 | Raise a hand | yes |
 | Answer a poll | yes, once, before it closes |
-| Read the class feed | yes |
+| Answer a written question | yes, and reword it until the question closes |
 | Publish video or share a screen | no — never sent, never relayed |
 | Draw on the whiteboard | no — `requireTeacher` |
-| Post to the feed | no — `requireStaff` |
+| Ask a question or close one | no — `requireStaff` |
 | Record, mute others, remove anyone, change the stage | no |
 
-A student asks a question by raising their hand and speaking. The teacher's
-answer comes back on the feed tagged `qa`.
+A student asks a spoken question by raising their hand. The teacher asks
+written ones, and a student answers those in the Q&A panel.
+
+### Two things a student never sees
+
+**Other students' answers.** The server sends written answers only to a second
+socket.io room holding staff — students are not in it, so those answers never
+reach the device. The class is told how many people have answered and nothing
+more.
+
+**A poll's answer before it closes.** Tallies, the correct set and the
+correct-answer count are stripped from the payload while a poll runs. So is
+*how many* options are correct, which is why the poll UI says "choose every
+option you think is right" rather than "pick two".
 
 ## Running it
 
@@ -89,14 +101,19 @@ lib/
 │  ├─ media_controller.dart   renderers and microphone state
 │  └─ whiteboard_controller.dart
 ├─ screens/                   join · room · ended
-└─ widgets/                   stage, board, inset, people, feed, poll, controls
+└─ widgets/                   stage, board, inset, people, Q&A, poll, controls
 ```
+
+Models are written against the server's payloads and accept the older shape
+where one existed — `Poll` reads both a single `correctIndex`/`myVote` and the
+current `correct`/`myVote` sets, because a client that understands only one
+shape fails silently: the vote goes through and never appears.
 
 ### The join sequence
 
 1. `join-room {name, meetingId, role: "student"}`
 2. The acknowledgement carries the **entire room** — router capabilities, ICE
-   servers, participants, chat, polls, the whole whiteboard, stage mode,
+   servers, participants, questions, polls, the whole whiteboard, stage mode,
    recording state and every current producer. A student joining an hour late
    is caught up in one round trip.
 3. Device loads, receive transport first, then send.

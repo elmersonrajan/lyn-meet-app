@@ -1,13 +1,15 @@
 /// A quiz question, as a student is allowed to see it.
 ///
-/// Mirrors pollPublic() in backend/src/socket/index.js. Two fields are absent
-/// while the poll runs and appear only once it closes:
+/// Mirrors pollPublic() in backend/src/socket/index.js.
 ///
-///   counts        how many picked each option
-///   correctIndex  which one was right
+/// A vote is a **set** of options, not one. How many are correct is never
+/// revealed while the poll runs — that is deliberate on the server, because
+/// being told "pick two" is most of the answer. So the student picks as many
+/// as they think are right and submits once.
 ///
-/// That is deliberate on the server, not an oversight here -- a student who
-/// could read the answer off the wire would not need to answer.
+/// Three fields are absent until the poll closes: the per-option tallies, the
+/// correct set, and how many people got it exactly right. A student who could
+/// read the answer off the wire would not need to answer.
 class Poll {
   final String id;
   final String question;
@@ -16,17 +18,24 @@ class Poll {
   final int createdAt;
   final int endsAt;
   final bool closed;
+
+  /// How many **people** have voted. Because one person can pick several
+  /// options, this is not the sum of [counts].
   final int totalVotes;
 
   /// Per-option tallies, only after the poll closes.
   final List<int>? counts;
 
-  /// The right answer, only after the poll closes.
-  final int? correctIndex;
+  /// The correct set, only after the poll closes.
+  final List<int>? correct;
 
-  /// This student's own choice, echoed back so a reload does not offer a
+  /// How many people picked exactly the correct set. Partial credit is not
+  /// given: the right answer plus a wrong one is a wrong answer.
+  final int? correctVotes;
+
+  /// This student's own choices, echoed back so a reload does not offer a
   /// second vote the server would refuse anyway.
-  final int? myVote;
+  final List<int>? myVotes;
 
   const Poll({
     required this.id,
@@ -38,11 +47,12 @@ class Poll {
     required this.closed,
     required this.totalVotes,
     this.counts,
-    this.correctIndex,
-    this.myVote,
+    this.correct,
+    this.correctVotes,
+    this.myVotes,
   });
 
-  bool get hasVoted => myVote != null;
+  bool get hasVoted => myVotes != null && myVotes!.isNotEmpty;
 
   DateTime get endsAtTime => DateTime.fromMillisecondsSinceEpoch(endsAt);
 
@@ -57,7 +67,25 @@ class Poll {
   /// because the closing broadcast can arrive a moment after the deadline.
   bool get isOpen => !closed && remaining > Duration.zero && !hasVoted;
 
-  bool get gotItRight => correctIndex != null && myVote == correctIndex;
+  /// Whether the answer has been revealed.
+  bool get revealed => closed && correct != null;
+
+  /// Exactly right — the same set the teacher marked, no more and no less.
+  bool get gotItRight {
+    final mine = myVotes;
+    final right = correct;
+    if (mine == null || right == null) return false;
+    if (mine.length != right.length) return false;
+    final a = [...mine]..sort();
+    final b = [...right]..sort();
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  bool isCorrectOption(int index) => correct?.contains(index) ?? false;
+  bool isMyPick(int index) => myVotes?.contains(index) ?? false;
 
   factory Poll.fromMap(Map<String, dynamic> map) {
     return Poll(
@@ -73,9 +101,29 @@ class Poll {
       counts: (map['counts'] as List?)
           ?.map((c) => (c as num?)?.toInt() ?? 0)
           .toList(),
-      correctIndex: (map['correctIndex'] as num?)?.toInt(),
-      myVote: (map['myVote'] as num?)?.toInt(),
+      correct: _indexes(map['correct'] ?? map['correctIndex']),
+      correctVotes: (map['correctVotes'] as num?)?.toInt(),
+      myVotes: _indexes(map['myVote'] ?? map['myVotes']),
     );
+  }
+
+  /// Reads a set of option indexes.
+  ///
+  /// Accepts a bare number as well as a list. Polls were single-answer before
+  /// they were multi-answer, and a client that understands only one shape
+  /// breaks against whichever server it does not expect — a silent failure
+  /// that shows up as a student's vote simply never appearing.
+  static List<int>? _indexes(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is num) return [raw.toInt()];
+    if (raw is List) {
+      final out = raw
+          .map((v) => v is num ? v.toInt() : int.tryParse(v.toString()))
+          .whereType<int>()
+          .toList();
+      return out.isEmpty ? null : out;
+    }
+    return null;
   }
 
   static List<Poll> listFrom(dynamic raw) {
@@ -89,13 +137,13 @@ class Poll {
   /// Applies a local vote straight away.
   ///
   /// The server acknowledges the vote but broadcasts only the running total,
-  /// never "you voted" -- so without this the button would stay live until the
-  /// poll closed and let the student tap an option the server would reject.
-  Poll withMyVote(int index) => _copy(myVote: index, totalVotes: totalVotes);
+  /// never "you voted" — so without this the buttons would stay live until the
+  /// poll closed and let the student submit again, which the server refuses.
+  Poll withMyVotes(List<int> picks) => _copy(myVotes: picks);
 
-  Poll withTotalVotes(int total) => _copy(myVote: myVote, totalVotes: total);
+  Poll withTotalVotes(int total) => _copy(totalVotes: total);
 
-  Poll _copy({int? myVote, required int totalVotes}) {
+  Poll _copy({List<int>? myVotes, int? totalVotes}) {
     return Poll(
       id: id,
       question: question,
@@ -104,10 +152,11 @@ class Poll {
       createdAt: createdAt,
       endsAt: endsAt,
       closed: closed,
-      totalVotes: totalVotes,
+      totalVotes: totalVotes ?? this.totalVotes,
       counts: counts,
-      correctIndex: correctIndex,
-      myVote: myVote ?? this.myVote,
+      correct: correct,
+      correctVotes: correctVotes,
+      myVotes: myVotes ?? this.myVotes,
     );
   }
 }
