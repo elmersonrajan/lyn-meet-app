@@ -34,13 +34,31 @@ class RemoteTrack {
   final MediaStream stream;
   final MediaStreamTrack track;
 
+  /// Whether the renderer must be told which track to draw, rather than being
+  /// handed the stream and left to take the first video track in it.
+  ///
+  /// Only true when this peer has more than one video track attached — a
+  /// teacher sharing a screen while their camera is on. See the comment in
+  /// MediaController.attach for why the plainer path is preferred otherwise.
+  final bool selectByTrackId;
+
   const RemoteTrack({
     required this.producerId,
     required this.peerId,
     required this.slot,
     required this.stream,
     required this.track,
+    this.selectByTrackId = false,
   });
+
+  RemoteTrack withSelection(bool select) => RemoteTrack(
+        producerId: producerId,
+        peerId: peerId,
+        slot: slot,
+        stream: stream,
+        track: track,
+        selectByTrackId: select,
+      );
 }
 
 /// The WebRTC half of the classroom.
@@ -390,7 +408,7 @@ class MediasoupService {
 
       _consumers[consumer.id] = consumer;
       _tracks[consumer.producerId] = remote;
-      onTrack?.call(remote);
+      _publishVideoFor(peerId, only: remote);
 
       // The server creates every consumer paused so that no media is in
       // flight before the client is ready for it. Nothing arrives until this.
@@ -402,6 +420,47 @@ class MediasoupService {
       });
     } catch (err) {
       debugPrint('[Mediasoup] consumer setup failed: $err');
+    }
+  }
+
+  /// Hands this peer's video to the renderers, deciding how to address it.
+  ///
+  /// Two ways to point a renderer at a track, and they are not equally safe.
+  ///
+  /// Handing over the whole stream makes the native side render the first
+  /// video track in it, which is right whenever there is only one — and that
+  /// is the ordinary case, a teacher with a camera and nothing else.
+  ///
+  /// Naming the track is only needed when a peer has two, because mediasoup
+  /// gives all of one peer's producers the same RTCP cname and they therefore
+  /// share a stream. But naming it makes the native side look the track up in
+  /// the peer connection identified by the stream's owner tag, and if that
+  /// lookup comes back empty the renderer is left with nothing and draws
+  /// black — where handing over the stream would simply have fallen through to
+  /// the first track. That is what turned the teacher's camera black.
+  ///
+  /// So the plain path is used until there is genuinely something to
+  /// disambiguate, and both of the peer's tracks are re-pointed at the moment
+  /// a second one shows up.
+  void _publishVideoFor(String peerId, {RemoteTrack? only}) {
+    final video = _tracks.values
+        .where((t) => t.peerId == peerId && t.slot != TrackSlot.audio)
+        .toList();
+
+    if (only != null && only.slot == TrackSlot.audio) {
+      onTrack?.call(only);
+      return;
+    }
+
+    final select = video.length > 1;
+    for (final track in video) {
+      // On a first arrival only the new track needs attaching; once a second
+      // shows up the other has to be re-pointed as well, since it was attached
+      // by stream and would now draw whichever track came first.
+      if (only != null && !select && track.producerId != only.producerId) {
+        continue;
+      }
+      onTrack?.call(track.withSelection(select));
     }
   }
 
@@ -426,7 +485,13 @@ class MediasoupService {
     // The stream belongs to the package's peer connection, not to us, and
     // other consumers from the same peer may still be using it — so it is
     // detached, never disposed.
-    if (track != null) onTrackGone?.call(track);
+    if (track == null) return;
+    onTrackGone?.call(track);
+
+    // With one of the peer's two video tracks gone there is nothing left to
+    // disambiguate, so whatever remains goes back to the plain path rather
+    // than staying on the fragile one for the rest of the lesson.
+    if (track.slot != TrackSlot.audio) _publishVideoFor(track.peerId);
   }
 
   /// Everything this peer had, gone. Called when someone leaves the room.
