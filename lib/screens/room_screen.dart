@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/poll.dart';
 import '../state/meeting_controller.dart';
+import '../widgets/audio_route_button.dart';
 import '../widgets/control_bar.dart';
 import '../widgets/participants_list.dart';
 import '../widgets/poll_card.dart';
@@ -13,9 +15,10 @@ import 'ended_screen.dart';
 
 /// The class.
 ///
-/// Stage on top, a drawer of tabs below. The split is fixed rather than
-/// resizable: on a phone the lesson is the point, and a student fiddling with
-/// panel sizes is a student not watching the board.
+/// Two layouts from one tree. Upright, the stage sits above a panel that
+/// slides up over it. Turned sideways — which is how a wide whiteboard is
+/// actually readable on a phone — the panel moves alongside instead, so
+/// opening it costs width rather than the height the board needs.
 class RoomScreen extends StatefulWidget {
   const RoomScreen({super.key});
 
@@ -26,14 +29,29 @@ class RoomScreen extends StatefulWidget {
 class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 3, vsync: this);
 
-  /// Whether the lower panel is open. Closed by default so the board gets the
-  /// whole screen until the student asks for something else.
+  static const _peopleTab = 0;
+  static const _qaTab = 1;
+
+  /// Whether the panel is open. Closed by default so the board gets the whole
+  /// screen until the student asks for something else.
   bool _panelOpen = false;
 
   @override
   void dispose() {
     _tabs.dispose();
     super.dispose();
+  }
+
+  /// Opens the panel on a given tab, or closes it if it is already showing it.
+  void _openPanel(int tab) {
+    setState(() {
+      if (_panelOpen && _tabs.index == tab) {
+        _panelOpen = false;
+        return;
+      }
+      _panelOpen = true;
+      _tabs.index = tab;
+    });
   }
 
   Future<void> _confirmLeave() async {
@@ -75,6 +93,8 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
     }
 
     final poll = meeting.currentPoll;
+    final size = MediaQuery.sizeOf(context);
+    final sideBySide = size.width > size.height && size.width >= 600;
 
     return PopScope(
       // Back must not silently drop a student out of a lesson.
@@ -84,9 +104,9 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
       },
       child: Scaffold(
         appBar: AppBar(
-          titleSpacing: 16,
+          centerTitle: true,
+          leading: AudioRouteButton(controller: meeting.audio),
           title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
@@ -100,8 +120,21 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
             ],
           ),
           actions: [
+            // A written question is easy to miss behind a closed panel, and it
+            // is the one thing in the room that is waiting on this student.
+            IconButton(
+              tooltip: 'Questions',
+              onPressed: () => _openPanel(_qaTab),
+              icon: Badge(
+                isLabelVisible: meeting.unansweredQuestions > 0,
+                label: Text('${meeting.unansweredQuestions}'),
+                backgroundColor: const Color(0xffffc44d),
+                textColor: const Color(0xff2a1c00),
+                child: const Icon(Icons.help_outline),
+              ),
+            ),
             Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.only(right: 8),
               child: Center(child: RecordingBadge(recording: meeting.recording)),
             ),
           ],
@@ -110,115 +143,113 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
           children: [
             StatusBanner(meeting: meeting),
             Expanded(
-              flex: _panelOpen ? 5 : 10,
-              child: Stack(
-                children: [
-                  Positioned.fill(child: StageView(meeting: meeting)),
-                  TeacherInset(meeting: meeting),
-                  // A live question is put in front of the student, over the
-                  // lesson. It is timed, and a student reading the board would
-                  // otherwise miss the window entirely.
-                  if (poll != null && !poll.closed && !poll.hasVoted)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: PollCard(meeting: meeting, poll: poll),
-                    ),
-                ],
-              ),
-            ),
-            _PanelHandle(
-              open: _panelOpen,
-              unread: meeting.unansweredQuestions,
-              onTap: () => setState(() => _panelOpen = !_panelOpen),
-            ),
-            if (_panelOpen)
-              Expanded(
-                flex: 6,
-                child: Column(
-                  children: [
-                    TabBar(
-                      controller: _tabs,
-                      tabs: [
-                        const Tab(text: 'People'),
-                        Tab(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text('Q&A'),
-                              if (meeting.unansweredQuestions > 0) ...[
-                                const SizedBox(width: 6),
-                                _Dot(count: meeting.unansweredQuestions),
-                              ],
-                            ],
+              child: sideBySide
+                  ? Row(
+                      children: [
+                        Expanded(flex: 3, child: _stage(meeting, poll)),
+                        if (_panelOpen)
+                          SizedBox(
+                            width: (size.width * 0.36).clamp(280.0, 420.0),
+                            child: _panel(meeting, poll),
                           ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        Expanded(
+                          flex: _panelOpen ? 5 : 10,
+                          child: _stage(meeting, poll),
                         ),
-                        const Tab(text: 'Poll'),
+                        if (_panelOpen)
+                          Expanded(flex: 6, child: _panel(meeting, poll)),
                       ],
                     ),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabs,
-                        children: [
-                          ParticipantsList(meeting: meeting),
-                          QuestionsPanel(meeting: meeting),
-                          poll == null
-                              ? const _NoPoll()
-                              : SingleChildScrollView(
-                                  child: PollCard(meeting: meeting, poll: poll),
-                                ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ControlBar(meeting: meeting, onLeave: _confirmLeave),
+            ),
+            ControlBar(
+              meeting: meeting,
+              onLeave: _confirmLeave,
+              onShowPeople: () => _openPanel(_peopleTab),
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-class _PanelHandle extends StatelessWidget {
-  const _PanelHandle({
-    required this.open,
-    required this.unread,
-    required this.onTap,
-  });
-
-  final bool open;
-  final int unread;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 34,
-        color: const Color(0xff141d29),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              open ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
-              size: 18,
-              color: const Color(0xff8b9cb3),
+  Widget _stage(MeetingController meeting, Poll? poll) {
+    return Stack(
+      children: [
+        Positioned.fill(child: StageView(meeting: meeting)),
+        TeacherInset(meeting: meeting),
+        // A live question is put in front of the student, over the lesson. It
+        // is timed, and a student reading the board would otherwise miss the
+        // window entirely.
+        if (poll != null && !poll.closed && !poll.hasVoted)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SingleChildScrollView(
+              child: PollCard(meeting: meeting, poll: poll),
             ),
-            const SizedBox(width: 6),
-            Text(
-              open ? 'Hide panel' : 'People, questions and polls',
-              style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 12.5),
-            ),
-            if (!open && unread > 0) ...[
-              const SizedBox(width: 8),
-              _Dot(count: unread),
+          ),
+      ],
+    );
+  }
+
+  Widget _panel(MeetingController meeting, Poll? poll) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xff0b1017),
+        border: Border(top: BorderSide(color: Color(0xff1e2937))),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TabBar(
+                  controller: _tabs,
+                  tabs: [
+                    const Tab(text: 'People'),
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Q&A'),
+                          if (meeting.unansweredQuestions > 0) ...[
+                            const SizedBox(width: 6),
+                            _Dot(count: meeting.unansweredQuestions),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const Tab(text: 'Poll'),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Hide panel',
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () => setState(() => _panelOpen = false),
+              ),
             ],
-          ],
-        ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: [
+                ParticipantsList(meeting: meeting),
+                QuestionsPanel(meeting: meeting),
+                poll == null
+                    ? const _NoPoll()
+                    : SingleChildScrollView(
+                        child: PollCard(meeting: meeting, poll: poll),
+                      ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -239,7 +270,11 @@ class _Dot extends StatelessWidget {
       ),
       child: Text(
         '$count',
-        style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

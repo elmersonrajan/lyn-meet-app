@@ -4,25 +4,32 @@ import '../state/meeting_controller.dart';
 
 /// Everything a student can do, in one bar.
 ///
-/// Three controls, and that is the whole list. A student cannot draw, post,
+/// Four controls, and that is the whole list. A student cannot draw, post,
 /// share, record or mute anyone else — the server refuses all of it — so
 /// offering those buttons would only be a way to produce error messages.
 class ControlBar extends StatelessWidget {
-  const ControlBar({super.key, required this.meeting, required this.onLeave});
+  const ControlBar({
+    super.key,
+    required this.meeting,
+    required this.onLeave,
+    required this.onShowPeople,
+  });
 
   final MeetingController meeting;
   final VoidCallback onLeave;
+  final VoidCallback onShowPeople;
 
   @override
   Widget build(BuildContext context) {
     final media = meeting.media;
-    final micBlocked = media.micLocked || !media.micAvailable;
+    final micBlocked = meeting.micLocked || !media.micAvailable;
+    final hands = meeting.participants.where((p) => p.handRaised).length;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
-        16,
+        8,
         10,
-        16,
+        8,
         10 + MediaQuery.paddingOf(context).bottom,
       ),
       decoration: const BoxDecoration(
@@ -51,6 +58,13 @@ class ControlBar extends StatelessWidget {
             onTap: meeting.toggleHand,
           ),
           _ControlButton(
+            icon: Icons.people_outline,
+            label: 'People',
+            active: false,
+            badge: hands > 0 ? hands : null,
+            onTap: onShowPeople,
+          ),
+          _ControlButton(
             icon: Icons.call_end,
             label: 'Leave',
             active: false,
@@ -71,6 +85,7 @@ class _ControlButton extends StatelessWidget {
     required this.onTap,
     this.disabled = false,
     this.danger = false,
+    this.badge,
     this.activeColor = const Color(0xff2f6bd8),
   });
 
@@ -79,6 +94,10 @@ class _ControlButton extends StatelessWidget {
   final bool active;
   final bool disabled;
   final bool danger;
+
+  /// A count over the corner, used for raised hands.
+  final int? badge;
+
   final Color activeColor;
   final VoidCallback onTap;
 
@@ -94,36 +113,74 @@ class _ControlButton extends StatelessWidget {
 
     final foreground = disabled ? const Color(0xff5c6b80) : Colors.white;
 
-    return Semantics(
-      button: true,
-      enabled: !disabled,
-      label: label,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: disabled ? null : onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: background,
-                  shape: BoxShape.circle,
+    // Four buttons have to fit the narrowest phone in portrait, so the circle
+    // shrinks a little on a small screen rather than the row overflowing.
+    final wide = MediaQuery.sizeOf(context).width >= 360;
+    final diameter = wide ? 52.0 : 46.0;
+
+    return Flexible(
+      child: Semantics(
+        button: true,
+        enabled: !disabled,
+        label: label,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: disabled ? null : onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: diameter,
+                      height: diameter,
+                      decoration: BoxDecoration(
+                        color: background,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: foreground, size: wide ? 24 : 21),
+                    ),
+                    if (badge != null)
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xffffc44d),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xff0f1720), width: 1.5),
+                          ),
+                          child: Text(
+                            '$badge',
+                            style: const TextStyle(
+                              color: Color(0xff2a1c00),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                child: Icon(icon, color: foreground, size: 24),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: disabled ? const Color(0xff5c6b80) : const Color(0xffb9c6d6),
-                  fontSize: 11,
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: disabled ? const Color(0xff5c6b80) : const Color(0xffb9c6d6),
+                    fontSize: 11,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -118,10 +118,11 @@ class StatusBanner extends StatelessWidget {
       );
     }
 
-    if (media.micLocked && media.micNotice != null) {
+    if (meeting.micLocked) {
       return _Banner(
         icon: Icons.lock_outline,
-        text: media.micNotice!,
+        text: media.micNotice ??
+            'Mic disabled — no teacher or coordinator in the meeting',
         color: const Color(0xff20293a),
         textColor: const Color(0xffb9c6d6),
       );

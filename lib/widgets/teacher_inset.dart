@@ -3,14 +3,14 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../state/meeting_controller.dart';
 
-/// The teacher's camera, small, over the corner of the stage.
+/// How much of the stage the teacher's tile takes.
+enum InsetSize { small, large, hidden }
+
+/// The teacher's camera, over the corner of the stage.
 ///
-/// Same placement as the recording's inset and the web client's tile, so a
-/// student watching live and a student watching the recording afterwards see
-/// the class laid out the same way.
-///
-/// Tapping it hides it: on a small screen the inset can sit on top of the very
-/// corner of the board the teacher is writing in.
+/// Tapping cycles small → large → hidden → small. A fixed size cannot be right
+/// for everyone: the tile is a face to read expressions off when the teacher is
+/// talking, and an obstruction when they are writing underneath it.
 class TeacherInset extends StatefulWidget {
   const TeacherInset({super.key, required this.meeting});
 
@@ -21,34 +21,50 @@ class TeacherInset extends StatefulWidget {
 }
 
 class _TeacherInsetState extends State<TeacherInset> {
-  bool _hidden = false;
+  InsetSize _size = InsetSize.small;
+
+  void _cycle() {
+    setState(() {
+      _size = switch (_size) {
+        InsetSize.small => InsetSize.large,
+        InsetSize.large => InsetSize.hidden,
+        InsetSize.hidden => InsetSize.small,
+      };
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final meeting = widget.meeting;
     if (!meeting.media.hasCamera) return const SizedBox.shrink();
 
-    final width = MediaQuery.sizeOf(context).width;
-    final insetWidth = (width * 0.3).clamp(96.0, 168.0);
-
-    if (_hidden) {
+    if (_size == InsetSize.hidden) {
       return Positioned(
         right: 12,
         bottom: 12,
         child: _RoundButton(
           icon: Icons.videocam_outlined,
           tooltip: 'Show the teacher',
-          onTap: () => setState(() => _hidden = false),
+          onTap: _cycle,
         ),
       );
     }
+
+    // Sized against the shorter edge so the tile stays sensible in landscape,
+    // where a fraction of the width would be enormous.
+    final screen = MediaQuery.sizeOf(context);
+    final short = screen.shortestSide;
+    final fraction = _size == InsetSize.large ? 0.62 : 0.40;
+    final insetWidth = (short * fraction).clamp(140.0, 340.0);
 
     return Positioned(
       right: 12,
       bottom: 12,
       child: GestureDetector(
-        onTap: () => setState(() => _hidden = true),
-        child: Container(
+        onTap: _cycle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
           width: insetWidth,
           height: insetWidth * 9 / 16,
           decoration: BoxDecoration(
@@ -80,6 +96,19 @@ class _TeacherInsetState extends State<TeacherInset> {
                     ),
                   ),
                 ),
+              // A quiet hint that the tile responds to a tap, which is not
+              // otherwise discoverable.
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Icon(
+                  _size == InsetSize.large
+                      ? Icons.close_fullscreen
+                      : Icons.open_in_full,
+                  size: 13,
+                  color: Colors.white.withValues(alpha: 0.65),
+                ),
+              ),
             ],
           ),
         ),
