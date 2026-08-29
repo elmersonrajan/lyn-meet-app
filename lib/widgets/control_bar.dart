@@ -1,0 +1,132 @@
+import 'package:flutter/material.dart';
+
+import '../state/meeting_controller.dart';
+
+/// Everything a student can do, in one bar.
+///
+/// Three controls, and that is the whole list. A student cannot draw, post,
+/// share, record or mute anyone else — the server refuses all of it — so
+/// offering those buttons would only be a way to produce error messages.
+class ControlBar extends StatelessWidget {
+  const ControlBar({super.key, required this.meeting, required this.onLeave});
+
+  final MeetingController meeting;
+  final VoidCallback onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = meeting.media;
+    final micBlocked = media.micLocked || !media.micAvailable;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        10,
+        16,
+        10 + MediaQuery.paddingOf(context).bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: Color(0xff0f1720),
+        border: Border(top: BorderSide(color: Color(0xff1e2937))),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _ControlButton(
+            icon: media.micOn ? Icons.mic : Icons.mic_off,
+            label: micBlocked
+                ? 'Locked'
+                : media.micOn
+                    ? 'Mute'
+                    : 'Unmute',
+            active: media.micOn,
+            disabled: micBlocked,
+            onTap: meeting.toggleMic,
+          ),
+          _ControlButton(
+            icon: meeting.handRaised ? Icons.back_hand : Icons.back_hand_outlined,
+            label: meeting.handRaised ? 'Lower' : 'Raise hand',
+            active: meeting.handRaised,
+            activeColor: const Color(0xffffc44d),
+            onTap: meeting.toggleHand,
+          ),
+          _ControlButton(
+            icon: Icons.call_end,
+            label: 'Leave',
+            active: false,
+            danger: true,
+            onTap: onLeave,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ControlButton extends StatelessWidget {
+  const _ControlButton({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.disabled = false,
+    this.danger = false,
+    this.activeColor = const Color(0xff2f6bd8),
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final bool disabled;
+  final bool danger;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = danger
+        ? const Color(0xffc0392b)
+        : disabled
+            ? const Color(0xff1b2430)
+            : active
+                ? activeColor
+                : const Color(0xff222d3d);
+
+    final foreground = disabled ? const Color(0xff5c6b80) : Colors.white;
+
+    return Semantics(
+      button: true,
+      enabled: !disabled,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: disabled ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: background,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: foreground, size: 24),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: disabled ? const Color(0xff5c6b80) : const Color(0xffb9c6d6),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
