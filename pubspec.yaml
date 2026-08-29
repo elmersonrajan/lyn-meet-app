@@ -27,5 +27,31 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
+  # Generates the launcher icons for both platforms from one source image.
+  # Build-time only — run it after changing the logo, not on every build:
+  #   dart run flutter_launcher_icons
+  flutter_launcher_icons: ^0.14.4
+
 flutter:
   uses-material-design: true
+
+  # Declared as a directory rather than by filename on purpose: a pubspec that
+  # names a file which is not there fails the build outright, and the logo is
+  # dropped in rather than generated. Anything added here is picked up without
+  # touching this file again.
+  assets:
+    - assets/
+
+flutter_launcher_icons:
+  image_path: "assets/lyn-logo-cross.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  # The letterbox behind the icon on Android 8 and up. The logo is a mark on a
+  # light ground, so the adaptive background is white rather than the app's
+  # dark theme — a dark plate would swallow it on most launchers.
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/lyn-logo-cross.png"
+  # Keeps the mark clear of the circular mask launchers crop to. Without it a
+  # square logo loses its corners.
+  adaptive_icon_foreground_inset: 18
