@@ -30,6 +30,19 @@ final List<RegExp> _pathPatterns = [
 final RegExp codePattern =
     RegExp(r'^[a-hjkmnp-z2-9]{3}-[a-hjkmnp-z2-9]{4}-[a-hjkmnp-z2-9]{3}$');
 
+/// The part of a link that carries the meeting, as a path.
+///
+/// On a custom scheme the first segment is parsed as the authority, not the
+/// path: `lynmeet://join/DEVTEST` gives host `join` and path `/DEVTEST`, so
+/// matching the `/join/ID` form against the path alone finds nothing and the
+/// link opens an empty join screen. Folding the host back on for non-http
+/// schemes puts those links back in the same shape as the web ones.
+String _pathOf(Uri uri) {
+  final isWeb = uri.scheme.isEmpty || uri.scheme == 'http' || uri.scheme == 'https';
+  if (isWeb || uri.host.isEmpty) return uri.path;
+  return '/${uri.host}${uri.path}';
+}
+
 String _clean(String? raw) {
   if (raw == null) return '';
   var value = raw.trim();
@@ -58,7 +71,7 @@ String readMeetingIdFromUri(Uri? uri) {
       }
     }
 
-    final path = uri.path;
+    final path = _pathOf(uri);
     for (final pattern in _pathPatterns) {
       final match = pattern.firstMatch(path);
       if (match != null) {
