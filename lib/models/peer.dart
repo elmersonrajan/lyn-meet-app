@@ -54,13 +54,18 @@ class Peer {
         .toList(growable: false);
   }
 
-  Peer copyWith({bool? handRaised, int? handRaisedAt, bool? audioMuted}) {
+  Peer copyWith({
+    bool? handRaised,
+    int? handRaisedAt,
+    bool? audioMuted,
+    bool? videoOff,
+  }) {
     return Peer(
       id: id,
       name: name,
       role: role,
       audioMuted: audioMuted ?? this.audioMuted,
-      videoOff: videoOff,
+      videoOff: videoOff ?? this.videoOff,
       disconnected: disconnected,
       handRaised: handRaised ?? this.handRaised,
       handRaisedAt: handRaised == false ? null : (handRaisedAt ?? this.handRaisedAt),

@@ -79,10 +79,18 @@ class _TeacherInsetState extends State<TeacherInset> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              RTCVideoView(
-                meeting.media.cameraRenderer,
-                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-              ),
+              // The video comes off screen when the camera is off rather than
+              // being left on its final frame. Turning a camera off pauses the
+              // producer instead of closing it, so frames just stop arriving
+              // and the renderer keeps what it last had — a still of the
+              // teacher, indistinguishable from a hung app.
+              if (meeting.cameraOff)
+                _CameraOff(name: meeting.cameraPeerName)
+              else
+                RTCVideoView(
+                  meeting.media.cameraRenderer,
+                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                ),
               if (meeting.teacherAway)
                 Container(
                   color: const Color(0xaa000000),
@@ -112,6 +120,42 @@ class _TeacherInsetState extends State<TeacherInset> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Stands in for the video while a camera is switched off.
+///
+/// Says so in words. A dark tile on its own reads as a failure, and the
+/// difference between "the teacher turned their camera off" and "the app has
+/// broken" is the whole point of drawing anything here.
+class _CameraOff extends StatelessWidget {
+  const _CameraOff({this.name});
+
+  final String? name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xff16202c),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.videocam_off, size: 20, color: Color(0xff6c7f99)),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              name == null ? 'Camera off' : '$name — camera off',
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 11),
+            ),
+          ),
+        ],
       ),
     );
   }
