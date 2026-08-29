@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Universal Links for the class link a teacher shares.
+
+	  iOS fetches https://meet.lynindia.in/.well-known/apple-app-site-association
+	  on install and checks that it names this app's Team ID and bundle
+	  identifier. Unlike Android there is no fallback to a chooser: if the
+	  association does not resolve, the link simply opens Safari.
+
+	  This entitlement is not enough on its own. The Associated Domains
+	  capability has to be enabled on the App ID in the Apple Developer
+	  account, and the provisioning profile regenerated afterwards, or the
+	  build fails to sign. See deploy/README.md.
+	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:meet.lynindia.in</string>
+	</array>
+</dict>
+</plist>

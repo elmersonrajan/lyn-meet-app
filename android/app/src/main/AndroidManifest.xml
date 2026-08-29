@@ -48,12 +48,34 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- The link a teacher shares with the class.
-                 autoVerify is deliberately off: verifying an https App Link
-                 needs an assetlinks.json served over real TLS from the domain,
-                 which the self-signed server cannot do. A custom scheme opens
-                 the app without that, and readMeetingIdFromUri accepts both
-                 lynmeet://join/NEET26 and lynmeet://?lynmeet=NEET26. -->
+            <!-- The link a teacher shares with the class:
+                 https://meet.lynindia.in/?lynmeet=DEVTEST
+
+                 autoVerify is what makes this open the app directly instead of
+                 showing a chooser, or worse, opening the browser. Android
+                 fetches https://meet.lynindia.in/.well-known/assetlinks.json on
+                 install and checks that it names this package and the
+                 certificate this build is signed with. If that file is missing,
+                 served as anything other than application/json, or lists a
+                 fingerprint that does not match the signing key, verification
+                 fails silently and every link goes to the browser instead.
+                 See deploy/assetlinks.json and deploy/README.md. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="meet.lynindia.in"/>
+                <!-- http as well, so a link pasted without the scheme, or an
+                     older link, still lands in the app. -->
+                <data android:scheme="http" android:host="meet.lynindia.in"/>
+            </intent-filter>
+
+            <!-- A custom scheme as a fallback. Verification can fail for
+                 reasons outside the app - a device with no Play Services, a
+                 sideloaded build signed with a different key, a captive
+                 network blocking the well-known fetch - and this always opens
+                 the app. readMeetingIdFromUri accepts lynmeet://join/NEET26
+                 and lynmeet://?lynmeet=NEET26 alike. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>

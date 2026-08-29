@@ -10,15 +10,27 @@ library;
 class Env {
   const Env._();
 
-  /// The backend origin. Plain http on purpose: the server presents a
-  /// self-signed certificate that a native Dart client refuses outright, so
-  /// the app talks to the API port directly rather than through the Vite
-  /// proxy the browser uses. See android/app/src/main/res/xml/
-  /// network_security_config.xml, which whitelists exactly this host.
+  /// The backend origin.
+  ///
+  /// The public domain, over real TLS. It fronts the same backend the browser
+  /// talks to and proxies /socket.io through to it, so nothing here needs a
+  /// certificate override or a cleartext exception. It is also the host the
+  /// shared links point at, which is what makes App Link verification
+  /// possible: the app has to be able to claim the domain it opens.
+  ///
+  /// Testing against a machine on the LAN or against the API port directly
+  /// still works, and the cleartext exceptions for those are kept in
+  /// android/app/src/main/res/xml/network_security_config.xml:
+  ///
+  ///   --dart-define=LYNMEET_SERVER=http://192.168.1.55:5000
   static const String serverUrl = String.fromEnvironment(
     'LYNMEET_SERVER',
-    defaultValue: 'http://59.96.57.40:5000',
+    defaultValue: 'https://meet.lynindia.in',
   );
+
+  /// The host shared links use. Kept beside the server URL because the two are
+  /// the same machine, and App Links only verify when they agree.
+  static const String linkHost = 'meet.lynindia.in';
 
   /// Socket.IO mount point — matches the backend's default.
   static const String socketPath = '/socket.io';

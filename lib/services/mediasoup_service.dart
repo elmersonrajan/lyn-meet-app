@@ -347,22 +347,26 @@ class MediasoupService {
               ? TrackSlot.audio
               : TrackSlot.camera;
 
-      // One stream per consumer, built here rather than using consumer.stream.
+      // The stream is passed through as the package built it, and the track is
+      // carried alongside so the renderer can be told which one to draw.
       //
-      // The package resolves a consumer's stream by looking up the RTCP cname,
-      // and mediasoup gives every producer from one peer the same cname. So a
-      // teacher's camera and their screen share arrive in a single MediaStream
-      // holding two video tracks — and RTCVideoView renders whichever comes
-      // first, the camera. The screen share was invisible while a coordinator's
-      // worked, purely because a coordinator has no camera to collide with.
-      final stream = await createLocalMediaStream('lynmeet_${consumer.id}');
-      await stream.addTrack(consumer.track);
-
+      // Both are needed. The package resolves a consumer's stream by RTCP
+      // cname, and mediasoup gives every producer from one peer the same
+      // cname, so a teacher's camera and screen share arrive in one
+      // MediaStream holding two video tracks. Handing that stream to a
+      // renderer draws whichever track comes first — the camera — which is
+      // why a teacher's screen share was invisible while a coordinator's, who
+      // has no camera to collide with, worked.
+      //
+      // Rebuilding a stream per consumer looks like the fix and is not: the
+      // native renderer looks a stream up by id and owner, and one made with
+      // createLocalMediaStream is owned locally, so it finds nothing and draws
+      // black. Selecting by track id is the supported way through.
       final remote = RemoteTrack(
         producerId: consumer.producerId,
         peerId: peerId,
         slot: slot,
-        stream: stream,
+        stream: consumer.stream,
         track: consumer.track,
       );
 
@@ -419,13 +423,10 @@ class MediasoupService {
       } catch (_) {}
     }
 
-    if (track != null) {
-      // Detached first, so no renderer is still pointing at the stream when it
-      // is disposed. These streams are ours — built per consumer in
-      // _onConsumer — so nothing else can be holding one.
-      onTrackGone?.call(track);
-      track.stream.dispose();
-    }
+    // The stream belongs to the package's peer connection, not to us, and
+    // other consumers from the same peer may still be using it — so it is
+    // detached, never disposed.
+    if (track != null) onTrackGone?.call(track);
   }
 
   /// Everything this peer had, gone. Called when someone leaves the room.
@@ -445,11 +446,6 @@ class MediasoupService {
       } catch (_) {}
     }
     _consumers.clear();
-    for (final track in _tracks.values) {
-      try {
-        await track.stream.dispose();
-      } catch (_) {}
-    }
     _tracks.clear();
     _claimed.clear();
 

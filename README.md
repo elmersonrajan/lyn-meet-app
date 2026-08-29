@@ -47,35 +47,44 @@ flutter pub get
 ```
 
 ```bash
-flutter run --dart-define=LYNMEET_SERVER=http://59.96.57.40:5000
+flutter run
 ```
 
-The default server is the same address, so a bare `flutter run` works too.
-Point it at a laptop running the backend with, for example,
-`--dart-define=LYNMEET_SERVER=http://192.168.1.55:5000` — or
-`http://10.0.2.2:5000` from an Android emulator.
+That talks to `https://meet.lynindia.in`, which fronts the backend and proxies
+`/socket.io` through to it over real TLS. Point it somewhere else with
+`--dart-define=LYNMEET_SERVER=http://192.168.1.55:5000` for a laptop on the
+LAN, or `http://10.0.2.2:5000` from an Android emulator — cleartext is
+permitted for those in
+`android/app/src/main/res/xml/network_security_config.xml` and the
+`NSExceptionDomains` block in `ios/Runner/Info.plist`, and nowhere else.
 
 ```bash
 flutter test
 ```
-
-### Why plain http
-
-The web client is served over a self-signed certificate. Browsers let a user
-click through that; a native Dart client rejects it outright. Rather than ship
-a certificate override that disables validation for every host, the app talks
-to the API port directly and cleartext is permitted for exactly the known
-server addresses — `android/app/src/main/res/xml/network_security_config.xml`
-and the `NSExceptionDomains` block in `ios/Runner/Info.plist`. Both name the
-host in the open, and both carry a note to delete them once the backend has a
-real domain and certificate.
 
 CORS is not involved: a native Socket.IO client sends no `Origin` header, and
 the connection is websocket-only so it never falls back to polling.
 
 ## Joining by link
 
-A link the teacher shares opens the app with the meeting ID already filled in.
+A teacher shares one link with the whole class:
+
+```
+https://meet.lynindia.in/?lynmeet=DEVTEST
+```
+
+Tapping it opens the app straight into that meeting. The app claims the domain
+— an `autoVerify` intent-filter on Android, an associated domain on iOS — and
+`lynmeet://join/DEVTEST` works as a fallback for devices where verification
+cannot happen.
+
+**Claiming the domain is only half of it.** Both platforms verify the claim by
+fetching a file from the server, and neither reports failure — the link just
+opens a browser. Those two files, and the two placeholders that must be filled
+in before they work, are in **[`deploy/`](deploy/README.md)**. As it stands
+`/.well-known/assetlinks.json` returns the web app's `index.html`, so
+verification fails today.
+
 `lib/services/meeting_link.dart` is a port of the web client's `meetingLink.js`
 and accepts every form it does — `?lynmeet=`, the older `?meeting=` /
 `?meetingId=` / `?id=`, the `/join/ID` and `/m/ID` paths, and a bare generated
@@ -151,6 +160,20 @@ back to `canvasWidth`/`canvasHeight`. Both paths are covered in
   TURN credentials cannot be passed without it, and without TURN a student on
   mobile data gets signalling, chat and the whiteboard but no audio or video —
   a failure that looks like a video bug and is a network one.
+- A teacher publishing both a camera and a screen share puts two video tracks
+  in one `MediaStream` — mediasoup gives all of a peer's producers the same
+  RTCP cname — so renderers are pointed at a **named track**, via
+  `setSrcObject(stream:, trackId:)`, not at the stream. Rebuilding a stream per
+  consumer looks like the fix and is not: the native renderer resolves a stream
+  by id and owner tag, and a locally-created one matches nothing and draws
+  black.
+- The mic lock is **derived** from whether staff are present, never stored. The
+  server broadcasts `mic-locked` when the last teacher leaves but sends nothing
+  when one returns, so a stored flag never clears.
+- A fresh join broadcasts only `peer-joined`, with no `participants` snapshot,
+  so the participant list is maintained from `peer-joined` / `peer-left` as
+  well as the snapshot. A teacher rejoining after their grace window is a new
+  peer, and missing that event also leaves the mic locked.
 - The `clip` stage mode shows a placeholder. Clip playback is web-only.
 - **Not yet tested against a live server.** The backend needs Linux — mediasoup
   has no Windows worker — so the handshake has been verified against the

@@ -5,6 +5,52 @@ import 'package:lynmeet/services/meeting_link.dart';
 /// the wrong room sees an empty meeting and blames the app, not the link.
 /// These cases mirror the ones the web client's meetingLink.js handles.
 void main() {
+  group('the link a teacher actually shares', () {
+    // The exact form that goes out to a class. If this case ever breaks, every
+    // student who taps the link lands on an empty join screen.
+    const shared = 'https://meet.lynindia.in/?lynmeet=DEVTEST';
+
+    test('opens the right meeting', () {
+      expect(readMeetingIdFromUri(Uri.parse(shared)), 'DEVTEST');
+    });
+
+    test('works over http as well, since the manifest claims both', () {
+      expect(
+        readMeetingIdFromUri(Uri.parse('http://meet.lynindia.in/?lynmeet=DEVTEST')),
+        'DEVTEST',
+      );
+    });
+
+    test('the custom-scheme fallback reaches the same room', () {
+      // What lynmeet:// links have to resolve to when App Link verification
+      // fails on a device.
+      expect(readMeetingIdFromUri(Uri.parse('lynmeet://join/DEVTEST')), 'DEVTEST');
+      expect(
+        readMeetingIdFromUri(Uri.parse('lynmeet://open/?lynmeet=DEVTEST')),
+        'DEVTEST',
+      );
+    });
+
+    test('a trailing slash or fragment does not change the room', () {
+      expect(
+        readMeetingIdFromUri(Uri.parse('$shared#top')),
+        'DEVTEST',
+      );
+    });
+
+    test('the app and the server agree on the room key', () {
+      // The server upper-cases the meeting ID and keys the room on it, so a
+      // lower-case link must still land in the same room rather than opening a
+      // second, empty one.
+      expect(
+        normalizeMeetingId(
+          readMeetingIdFromUri(Uri.parse('https://meet.lynindia.in/?lynmeet=devtest')),
+        ),
+        'DEVTEST',
+      );
+    });
+  });
+
   group('readMeetingIdFromUri', () {
     test('reads the parameter Copy Link writes', () {
       expect(
