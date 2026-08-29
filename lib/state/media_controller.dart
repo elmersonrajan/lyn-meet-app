@@ -116,22 +116,38 @@ class MediaController extends ChangeNotifier {
         _cameraPeerId = track.peerId;
         _hasCamera = true;
         notifyListeners();
-        await cameraRenderer.setSrcObject(
-          stream: track.stream,
-          trackId: track.track.id,
-        );
+        await _point(cameraRenderer, track);
       case TrackSlot.screen:
         _screenProducerId = track.producerId;
         _hasScreen = true;
         notifyListeners();
-        await screenRenderer.setSrcObject(
-          stream: track.stream,
-          trackId: track.track.id,
-        );
+        await _point(screenRenderer, track);
       case TrackSlot.audio:
         _audioTracks[track.producerId] = track;
         notifyListeners();
     }
+  }
+
+  /// Points a renderer at a track, the plain way where that is enough.
+  ///
+  /// Handing over the stream makes the native side draw the first video track
+  /// in it, which is correct whenever the peer only has one. Naming the track
+  /// is more precise but conditional: the native side resolves it against the
+  /// peer connection named by the stream's owner tag, and when that lookup
+  /// finds nothing the renderer ends up with no track at all and draws black,
+  /// where the stream would have fallen through to its first track.
+  ///
+  /// So the precise form is used only when it earns its risk — a peer with a
+  /// camera and a screen share at once.
+  Future<void> _point(RTCVideoRenderer renderer, RemoteTrack track) async {
+    if (track.selectByTrackId) {
+      await renderer.setSrcObject(
+        stream: track.stream,
+        trackId: track.track.id,
+      );
+      return;
+    }
+    renderer.srcObject = track.stream;
   }
 
   /// Drops a track whose producer has gone.
