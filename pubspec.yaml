@@ -35,12 +35,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Declared as a directory rather than by filename on purpose: a pubspec that
-  # names a file which is not there fails the build outright, and the logo is
-  # dropped in rather than generated. Anything added here is picked up without
-  # touching this file again.
+  # Named rather than declared as a directory now that the logo is committed,
+  # so the build fails loudly if it ever goes missing rather than quietly
+  # shipping without it.
   assets:
-    - assets/
+    - assets/lyn-logo-cross.png
 
 flutter_launcher_icons:
   image_path: "assets/lyn-logo-cross.png"
