@@ -219,20 +219,40 @@ class UpperCaseFormatter extends TextInputFormatter {
 class _Logo extends StatelessWidget {
   const _Logo();
 
+  /// The mark, sized against the screen so it does not dominate a small phone
+  /// or look lost on a tablet.
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final size = (width * 0.28).clamp(88.0, 148.0);
+
     return Column(
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: const Color(0xff2f6bd8),
-            borderRadius: BorderRadius.circular(18),
+        SizedBox(
+          height: size,
+          child: Image.asset(
+            'assets/lyn-logo-cross.png',
+            fit: BoxFit.contain,
+            // The logo is a fixed asset, so a failure here means it is missing
+            // from the build rather than a network problem. Falling back keeps
+            // the class reachable instead of leaving a broken-image box on the
+            // one screen a student has to get through.
+            errorBuilder: (context, error, stack) => Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: const Color(0xff2f6bd8),
+                borderRadius: BorderRadius.circular(size * 0.28),
+              ),
+              child: Icon(
+                Icons.cast_for_education,
+                color: Colors.white,
+                size: size * 0.5,
+              ),
+            ),
           ),
-          child: const Icon(Icons.cast_for_education, color: Colors.white, size: 32),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         const Text(
           'LYN MEET',
           style: TextStyle(
