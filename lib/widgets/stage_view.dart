@@ -3,6 +3,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../state/meeting_controller.dart';
 import 'whiteboard_view.dart';
+import 'zoomable_stage.dart';
 
 /// The main area: whatever the teacher has put in front of the class.
 ///
@@ -20,20 +21,33 @@ class StageView extends StatelessWidget {
     final mode = meeting.stageMode;
     final showScreen = mode == 'screen' && meeting.media.hasScreen;
 
+    if (mode == 'clip') {
+      return Container(
+        color: const Color(0xff0d1520),
+        child: const _UnsupportedStage(
+          icon: Icons.movie_outlined,
+          title: 'The teacher is playing a clip',
+          detail: 'Video clips play on the web app only',
+        ),
+      );
+    }
+
     return Container(
       color: const Color(0xff0d1520),
-      child: showScreen
-          ? RTCVideoView(
-              meeting.media.screenRenderer,
-              objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
-            )
-          : mode == 'clip'
-              ? const _UnsupportedStage(
-                  icon: Icons.movie_outlined,
-                  title: 'The teacher is playing a clip',
-                  detail: 'Video clips play on the web app only',
-                )
-              : WhiteboardView(controller: meeting.whiteboard),
+      // Both the board and a shared screen are readable only if a student can
+      // magnify them: each is a wide desktop surface scaled down to a few
+      // hundred pixels, and anything the teacher wrote small is lost at that
+      // size. Zoom resets when the stage changes, since a magnified corner of
+      // a whiteboard means nothing once a screen share replaces it.
+      child: ZoomableStage(
+        resetKey: showScreen ? 'screen' : 'board',
+        child: showScreen
+            ? RTCVideoView(
+                meeting.media.screenRenderer,
+                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+              )
+            : WhiteboardView(controller: meeting.whiteboard),
+      ),
     );
   }
 }
