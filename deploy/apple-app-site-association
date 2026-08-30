@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appID": "REPLACE_WITH_TEAM_ID.com.lyn.lynmeet",
+        "appID": "REPLACE_WITH_TEAM_ID.com.el.lynmeet",
         "paths": [
           "*"
         ]
