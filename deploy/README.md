@@ -48,7 +48,7 @@ actually matters once the app is on Play. Both can be listed at once; that is
 why the array has two slots.
 
 **`apple-app-site-association`** needs the 10-character Team ID from the Apple
-Developer account, giving `ABCDE12345.com.lyn.lynmeet`.
+Developer account, giving `ABCDE12345.com.el.lynmeet`.
 
 ## Serving them
 
@@ -80,7 +80,7 @@ curl "https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.sit
 On a device with the app installed:
 
 ```bash
-adb shell pm get-app-links com.lyn.lynmeet
+adb shell pm get-app-links com.el.lynmeet
 ```
 
 `verified` is the answer you want. `legacy_failure` or `1024` means the fetch

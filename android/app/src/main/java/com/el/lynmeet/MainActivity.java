@@ -1,4 +1,4 @@
-package com.lyn.lynmeet;
+package com.el.lynmeet;
 
 import io.flutter.embedding.android.FlutterActivity;
 
