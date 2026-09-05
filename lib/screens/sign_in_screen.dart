@@ -67,7 +67,16 @@ class SignInScreen extends StatelessWidget {
 
                   if (auth.error != null) ...[
                     const SizedBox(height: 20),
-                    _ErrorBox(message: auth.error!),
+                    _ErrorBox(
+                      message: auth.error!,
+                      // A sign-in link is spent the first time it is used, so
+                      // a second attempt with the same one always fails. The
+                      // fix is a new link rather than a retry, and saying so
+                      // is the difference between one more tap and giving up.
+                      hint: auth.failure == AuthFailure.needsSignIn
+                          ? 'Sign in again to get a fresh link — each one works once.'
+                          : null,
+                    ),
                   ],
 
                   const SizedBox(height: 28),
@@ -149,9 +158,12 @@ class _Waiting extends StatelessWidget {
 }
 
 class _ErrorBox extends StatelessWidget {
-  const _ErrorBox({required this.message});
+  const _ErrorBox({required this.message, this.hint});
 
   final String message;
+
+  /// What to do about it, when there is something to do.
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -162,13 +174,33 @@ class _ErrorBox extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline, size: 18, color: Color(0xffff8b8b)),
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.error_outline, size: 18, color: Color(0xffff8b8b)),
+          ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: Color(0xffffb3b3), fontSize: 13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message,
+                  style: const TextStyle(color: Color(0xffffb3b3), fontSize: 13),
+                ),
+                if (hint != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    hint!,
+                    style: const TextStyle(
+                      color: Color(0xffd79a9a),
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

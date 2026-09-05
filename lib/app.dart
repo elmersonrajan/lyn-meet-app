@@ -31,6 +31,15 @@ class _LynMeetAppState extends State<LynMeetApp> {
   /// blank field.
   String? _pendingMeetingId;
 
+  /// Tokens already handed to the server.
+  ///
+  /// The launch link arrives twice on Android — once from getInitialLink and
+  /// again on the stream — and a hand-off token is spent on first use. Without
+  /// this the first redemption succeeds, the second is refused as already
+  /// used, and the refusal lands on top of the success: sign-in works and then
+  /// reports "this link has expired" a moment later.
+  final Set<String> _redeemed = {};
+
   @override
   void initState() {
     super.initState();
@@ -70,7 +79,9 @@ class _LynMeetAppState extends State<LynMeetApp> {
     }
 
     final token = readHandoffToken(uri);
-    if (token.isNotEmpty) await _auth.completeSignIn(token);
+    if (token.isEmpty) return;
+    if (!_redeemed.add(token)) return;
+    await _auth.completeSignIn(token);
   }
 
   @override
