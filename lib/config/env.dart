@@ -35,12 +35,16 @@ class Env {
   /// Socket.IO mount point — matches the backend's default.
   static const String socketPath = '/socket.io';
 
-  /// Where signing in starts. The platform authenticates, then sends the
-  /// browser back to the meeting link with a one-time token attached — and
-  /// that link is one this app claims, so the token arrives here.
-  static const String loginUrl = String.fromEnvironment(
+  /// Last resort for where signing in starts.
+  ///
+  /// Normally this is not used at all: the server reports its own configured
+  /// login URL on an unauthenticated request, and that answer is the one to
+  /// trust, since it is the value the rest of the sign-in round trip was built
+  /// against. Hard-coding a guess here is how the button came to open a 404 —
+  /// the address in .env.example, /sso/authorize, has never existed.
+  static const String loginUrlFallback = String.fromEnvironment(
     'LYNMEET_LOGIN',
-    defaultValue: 'https://lynindia.in/sso/authorize',
+    defaultValue: 'https://lynindia.in/',
   );
 
   /// The session cookie the server sets, matching SESSION_COOKIE_NAME on the

@@ -91,8 +91,8 @@ class AuthController extends ChangeNotifier {
   Future<bool> startSignIn({String? meetingId}) async {
     _error = null;
     _failure = null;
-    final uri = _service.loginUri(meetingId: meetingId);
     try {
+      final uri = await _service.loginUri(meetingId: meetingId);
       final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched) {
         _error = 'Could not open the browser to sign in';
