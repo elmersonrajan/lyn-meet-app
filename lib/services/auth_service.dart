@@ -60,17 +60,56 @@ class AuthService {
         if (hasSession) 'Cookie': _cookie!,
       };
 
+  /// The login URL the server is actually configured with, once discovered.
+  String? _loginUrl;
+
+  /// Asks the server where signing in starts.
+  ///
+  /// The address is deployment configuration — SSO_LOGIN_URL — and the server
+  /// volunteers it on any unauthenticated request precisely so clients do not
+  /// have to guess. Guessing is what broke this: the value in .env.example,
+  /// /sso/authorize, is not a real endpoint, while the live setting is the
+  /// site root. Asking means a change on the server does not need an app
+  /// release to follow it.
+  Future<String> resolveLoginUrl() async {
+    final known = _loginUrl;
+    if (known != null && known.isNotEmpty) return known;
+
+    try {
+      final response = await _client
+          .get(Uri.parse('${Env.serverUrl}/auth/me'),
+              headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 12));
+      final body = _decode(response.body);
+      final reported = body['loginUrl']?.toString();
+      if (reported != null && reported.isNotEmpty) {
+        _loginUrl = reported;
+        return reported;
+      }
+    } catch (err) {
+      debugPrint('[Auth] could not ask the server where to sign in: $err');
+    }
+    return Env.loginUrlFallback;
+  }
+
   /// Where to send someone to sign in.
   ///
   /// The platform bounces straight back if they already have a session there,
   /// so an already-signed-in user sees a flicker rather than a login form. The
   /// return address is the meeting link itself, which this app claims — so the
   /// token comes back to the app rather than landing in a browser tab.
-  Uri loginUri({String? meetingId}) {
+  ///
+  /// `redirect` is the parameter the server's own login redirect uses, so the
+  /// platform is being asked in the form it already understands.
+  Future<Uri> loginUri({String? meetingId}) async {
+    final base = await resolveLoginUrl();
     final redirect = meetingId == null || meetingId.isEmpty
         ? '${Env.serverUrl}/'
         : '${Env.serverUrl}/?lynmeet=${Uri.encodeComponent(meetingId)}';
-    return Uri.parse(Env.loginUrl).replace(queryParameters: {
+
+    final uri = Uri.parse(base);
+    return uri.replace(queryParameters: {
+      ...uri.queryParameters,
       'redirect': redirect,
     });
   }
