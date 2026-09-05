@@ -1,61 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/auth_user.dart';
 import '../services/meeting_link.dart';
+import '../state/auth_controller.dart';
 import '../state/meeting_controller.dart';
 import 'room_screen.dart';
 
-/// The way in: a name and a class code.
+/// Which class to join.
 ///
-/// There is no role picker. This build is a student app, the role is baked
-/// into the join call, and offering a choice the server would refuse to
-/// honour would be a lie about what the app can do.
+/// One field. There is no name box any more and no role picker: the server
+/// takes both from the signed-in account, discards a role sent by a client,
+/// and can lower it further for the particular class — a teacher standing in
+/// someone else's lesson joins as a student. So the app states who you are
+/// rather than asking, and finds out what you are once you are in.
 class JoinScreen extends StatefulWidget {
-  const JoinScreen({super.key, this.initialMeetingId});
+  const JoinScreen({super.key, this.initialMeetingId, required this.user});
 
   /// A meeting ID picked out of the link that opened the app.
   final String? initialMeetingId;
+
+  final AuthUser user;
 
   @override
   State<JoinScreen> createState() => _JoinScreenState();
 }
 
 class _JoinScreenState extends State<JoinScreen> {
-  final _nameController = TextEditingController();
   final _meetingController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-
-  static const _nameKey = 'lynmeet.student.name';
 
   @override
   void initState() {
     super.initState();
     _meetingController.text = normalizeMeetingId(widget.initialMeetingId);
-    _restoreName();
-  }
-
-  /// A student rejoins the same class from the same phone all term. Making
-  /// them retype their name every time is how you end up with an attendance
-  /// register full of "asdf".
-  Future<void> _restoreName() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(_nameKey);
-      if (saved != null && saved.isNotEmpty && mounted && _nameController.text.isEmpty) {
-        _nameController.text = saved;
-      }
-    } catch (_) {
-      // A missing preference is not worth interrupting a join for.
-    }
   }
 
   @override
   void didUpdateWidget(JoinScreen old) {
     super.didUpdateWidget(old);
-    // A link arriving while the app is already open — the student tapped the
-    // teacher's message from WhatsApp without closing the app first.
+    // A link arriving while the app is already open — someone tapped the
+    // class link without closing the app first.
     final incoming = normalizeMeetingId(widget.initialMeetingId);
     if (incoming.isNotEmpty && incoming != _meetingController.text) {
       _meetingController.text = incoming;
@@ -64,7 +50,6 @@ class _JoinScreenState extends State<JoinScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _meetingController.dispose();
     super.dispose();
   }
@@ -73,14 +58,10 @@ class _JoinScreenState extends State<JoinScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final meeting = context.read<MeetingController>();
-    final name = _nameController.text.trim();
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_nameKey, name);
-    } catch (_) {}
-
-    await meeting.join(name: name, meetingId: _meetingController.text);
+    await meeting.join(
+      meetingId: _meetingController.text,
+      signedInAs: widget.user.name,
+    );
 
     if (!mounted) return;
     if (meeting.isLive) {
@@ -94,6 +75,7 @@ class _JoinScreenState extends State<JoinScreen> {
   Widget build(BuildContext context) {
     final meeting = context.watch<MeetingController>();
     final joining = meeting.phase == MeetingPhase.joining;
+    final user = widget.user;
 
     return Scaffold(
       body: SafeArea(
@@ -109,38 +91,26 @@ class _JoinScreenState extends State<JoinScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const _Logo(),
-                    const SizedBox(height: 32),
-                    TextFormField(
-                      controller: _nameController,
-                      enabled: !joining,
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Your name',
-                        hintText: 'The name your teacher will see',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                      validator: (value) => (value ?? '').trim().isEmpty
-                          ? 'Enter your name'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 28),
+                    _SignedInAs(user: user),
+                    const SizedBox(height: 20),
                     TextFormField(
                       controller: _meetingController,
                       enabled: !joining,
                       textInputAction: TextInputAction.go,
                       onFieldSubmitted: (_) => joining ? null : _join(),
-                      // Upper-cased as it is typed, because the server keys the
-                      // room on this exact string. Lower case used to open a
-                      // second, empty room with the same name.
+                      // Upper-cased as it is typed. Classes are numeric now,
+                      // but ad-hoc rooms are still allowed in testing and the
+                      // server keys those by this exact string — lower case
+                      // used to open a second, empty room of the same name.
                       inputFormatters: [UpperCaseFormatter()],
                       decoration: const InputDecoration(
-                        labelText: 'Meeting ID',
-                        hintText: 'e.g. NEET26',
+                        labelText: 'Class ID',
+                        hintText: 'From your timetable, or the class link',
                         prefixIcon: Icon(Icons.meeting_room_outlined),
                       ),
                       validator: (value) => (value ?? '').trim().isEmpty
-                          ? 'Enter the meeting ID from your teacher'
+                          ? 'Enter the class ID'
                           : null,
                     ),
                     if (meeting.error != null) ...[
@@ -183,11 +153,13 @@ class _JoinScreenState extends State<JoinScreen> {
                             : const Text('Join the class'),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'You join muted. Raise your hand when you want to speak.',
+                    const SizedBox(height: 18),
+                    Text(
+                      user.isAdmin
+                          ? 'You join muted. Your admin controls are in the class.'
+                          : 'You join muted. Raise your hand when you want to speak.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xff7a8ba3), fontSize: 12.5),
+                      style: const TextStyle(color: Color(0xff7a8ba3), fontSize: 12.5),
                     ),
                   ],
                 ),
@@ -200,8 +172,101 @@ class _JoinScreenState extends State<JoinScreen> {
   }
 }
 
-/// Upper-cases the meeting ID as it is typed, keeping the cursor where the
-/// student left it.
+/// Who the server says you are, and therefore what this app will let you do.
+///
+/// Worth stating plainly. On a shared phone the account signed in is often not
+/// the person holding it, and the difference decides whether they can mute the
+/// room or remove somebody from it.
+class _SignedInAs extends StatelessWidget {
+  const _SignedInAs({required this.user});
+
+  final AuthUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final admin = user.isAdmin;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xff141d29),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: admin ? const Color(0xff2f6bd8) : const Color(0xff243043),
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor:
+                admin ? const Color(0xff2f6bd8) : const Color(0xff2b3648),
+            child: Text(
+              _initials(user.name),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  user.email,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color(0xff7a8ba3), fontSize: 11.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: admin ? const Color(0xff1e3a63) : const Color(0xff222d3d),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              user.modeLabel,
+              style: TextStyle(
+                color: admin ? const Color(0xff9dc2ff) : const Color(0xffb9c6d6),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Sign out',
+            iconSize: 18,
+            onPressed: () => context.read<AuthController>().signOut(),
+            icon: const Icon(Icons.logout, color: Color(0xff7a8ba3)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    if (parts.isEmpty) return '?';
+    return parts.take(2).map((p) => p[0].toUpperCase()).join();
+  }
+}
+
+/// Upper-cases the class ID as it is typed, keeping the cursor where it was.
 class UpperCaseFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -219,12 +284,9 @@ class UpperCaseFormatter extends TextInputFormatter {
 class _Logo extends StatelessWidget {
   const _Logo();
 
-  /// The mark, sized against the screen so it does not dominate a small phone
-  /// or look lost on a tablet.
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final size = (width * 0.28).clamp(88.0, 148.0);
+    final size = (MediaQuery.sizeOf(context).width * 0.24).clamp(72.0, 120.0);
 
     return Column(
       children: [
@@ -233,39 +295,22 @@ class _Logo extends StatelessWidget {
           child: Image.asset(
             'assets/lyn-logo-cross.png',
             fit: BoxFit.contain,
-            // The logo is a fixed asset, so a failure here means it is missing
-            // from the build rather than a network problem. Falling back keeps
-            // the class reachable instead of leaving a broken-image box on the
-            // one screen a student has to get through.
-            errorBuilder: (context, error, stack) => Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: const Color(0xff2f6bd8),
-                borderRadius: BorderRadius.circular(size * 0.28),
-              ),
-              child: Icon(
-                Icons.cast_for_education,
-                color: Colors.white,
-                size: size * 0.5,
-              ),
+            errorBuilder: (context, error, stack) => Icon(
+              Icons.cast_for_education,
+              size: size * 0.6,
+              color: const Color(0xff2f6bd8),
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         const Text(
           'LYN MEET',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 26,
+            fontSize: 24,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.5,
           ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Student',
-          style: TextStyle(color: Color(0xff8b9cb3), fontSize: 14, letterSpacing: 3),
         ),
       ],
     );

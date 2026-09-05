@@ -63,6 +63,7 @@ class ParticipantsList extends StatelessWidget {
               peer: peers[index],
               isMe: peers[index].id == meeting.me?.id,
               isSpeaking: meeting.activeSpeakers.contains(peers[index].id),
+              meeting: meeting,
             ),
           ),
         ),
@@ -76,11 +77,47 @@ class _PeerRow extends StatelessWidget {
     required this.peer,
     required this.isMe,
     required this.isSpeaking,
+    required this.meeting,
   });
 
   final Peer peer;
   final bool isMe;
   final bool isSpeaking;
+  final MeetingController meeting;
+
+  /// Staff can act on other people; nobody can act on themselves here, and a
+  /// student sees no menu at all because every item would be refused.
+  bool get _canAct => meeting.isAdmin && !isMe;
+
+  Future<void> _remove(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${peer.name}?'),
+        content: const Text(
+          'They are disconnected and told they were removed. They can rejoin '
+          'unless the class is closed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xffc0392b)),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final error = await meeting.removeParticipant(peer.id);
+    if (error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,6 +206,30 @@ class _PeerRow extends StatelessWidget {
                 ? const Color(0xff6b7a8d)
                 : (isSpeaking ? const Color(0xff35d07f) : const Color(0xffb9c6d6)),
           ),
+          if (_canAct)
+            PopupMenuButton<String>(
+              tooltip: 'Manage ${peer.name}',
+              iconSize: 18,
+              icon: const Icon(Icons.more_vert, color: Color(0xff7a8ba3)),
+              onSelected: (choice) async {
+                if (choice == 'lower') {
+                  await meeting.lowerHand(peer.id);
+                } else if (choice == 'remove') {
+                  await _remove(context);
+                }
+              },
+              itemBuilder: (context) => [
+                if (peer.handRaised)
+                  const PopupMenuItem(
+                    value: 'lower',
+                    child: Text('Lower their hand'),
+                  ),
+                const PopupMenuItem(
+                  value: 'remove',
+                  child: Text('Remove from the class'),
+                ),
+              ],
+            ),
         ],
       ),
     );

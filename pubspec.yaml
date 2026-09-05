@@ -18,6 +18,12 @@ dependencies:
 
   socket_io_client: ^3.1.6
   provider: ^6.1.5
+
+  # Sign-in. The platform issues a one-time token in a browser and the app
+  # trades it for a session cookie, so both a browser launcher and a plain
+  # HTTP client are needed.
+  http: ^1.6.0
+  url_launcher: ^6.3.2
   wakelock_plus: ^1.6.1
   shared_preferences: ^2.3.0
   app_links: ^6.3.0

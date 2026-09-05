@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../models/poll.dart';
 import '../state/meeting_controller.dart';
+import '../widgets/admin_compose.dart';
+import '../widgets/admin_panel.dart';
 import '../widgets/audio_route_button.dart';
 import '../widgets/connection_indicator.dart';
 import '../widgets/control_bar.dart';
@@ -27,11 +29,27 @@ class RoomScreen extends StatefulWidget {
   State<RoomScreen> createState() => _RoomScreenState();
 }
 
-class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
+  /// Admins get a fourth tab holding the controls that only they can use.
+  TabController? _tabs;
+  int _tabCount = 0;
 
   static const _peopleTab = 0;
   static const _qaTab = 1;
+  static const _pollTab = 2;
+  static const _adminTab = 3;
+
+  /// Rebuilt rather than resized when the role settles: a TabController's
+  /// length is fixed at construction, and the role is only known once the
+  /// server has answered the join.
+  TabController _controllerFor(int count) {
+    if (_tabs == null || _tabCount != count) {
+      _tabs?.dispose();
+      _tabs = TabController(length: count, vsync: this);
+      _tabCount = count;
+    }
+    return _tabs!;
+  }
 
   /// Whether the panel is open. Closed by default so the board gets the whole
   /// screen until the student asks for something else.
@@ -39,19 +57,21 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
-    _tabs.dispose();
+    _tabs?.dispose();
     super.dispose();
   }
 
   /// Opens the panel on a given tab, or closes it if it is already showing it.
   void _openPanel(int tab) {
     setState(() {
-      if (_panelOpen && _tabs.index == tab) {
+      final tabs = _tabs;
+      if (tabs == null || tab >= tabs.length) return;
+      if (_panelOpen && tabs.index == tab) {
         _panelOpen = false;
         return;
       }
       _panelOpen = true;
-      _tabs.index = tab;
+      tabs.index = tab;
     });
   }
 
@@ -94,6 +114,9 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
     }
 
     final poll = meeting.currentPoll;
+    // The role is the server's answer to the join, so the extra tab can only
+    // appear once that has come back.
+    final tabs = _controllerFor(meeting.isAdmin ? 4 : 3);
     final size = MediaQuery.sizeOf(context);
     final sideBySide = size.width > size.height && size.width >= 600;
 
@@ -135,6 +158,12 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
                 child: const Icon(Icons.help_outline),
               ),
             ),
+            if (meeting.isAdmin)
+              IconButton(
+                tooltip: 'Class controls',
+                onPressed: () => _openPanel(_adminTab),
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+              ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Center(child: RecordingBadge(recording: meeting.recording)),
@@ -155,7 +184,7 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
                         if (_panelOpen)
                           SizedBox(
                             width: (size.width * 0.36).clamp(280.0, 420.0),
-                            child: _panel(meeting, poll),
+                            child: _panel(meeting, poll, tabs),
                           ),
                       ],
                     )
@@ -166,7 +195,7 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
                           child: _stage(meeting, poll),
                         ),
                         if (_panelOpen)
-                          Expanded(flex: 6, child: _panel(meeting, poll)),
+                          Expanded(flex: 6, child: _panel(meeting, poll, tabs)),
                       ],
                     ),
             ),
@@ -202,7 +231,7 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _panel(MeetingController meeting, Poll? poll) {
+  Widget _panel(MeetingController meeting, Poll? poll, TabController tabs) {
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xff0b1017),
@@ -214,7 +243,9 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
             children: [
               Expanded(
                 child: TabBar(
-                  controller: _tabs,
+                  isScrollable: meeting.isAdmin,
+                  tabAlignment: meeting.isAdmin ? TabAlignment.start : null,
+                  controller: tabs,
                   tabs: [
                     const Tab(text: 'People'),
                     Tab(
@@ -230,9 +261,29 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
                       ),
                     ),
                     const Tab(text: 'Poll'),
+                    if (meeting.isAdmin) const Tab(text: 'Controls'),
                   ],
                 ),
               ),
+              // Composing is offered where the thing being composed lives, so
+              // the button is only on the tab it belongs to.
+              if (meeting.isAdmin)
+                AnimatedBuilder(
+                  animation: tabs,
+                  builder: (context, _) => switch (tabs.index) {
+                    _qaTab => IconButton(
+                        tooltip: 'Ask the class a question',
+                        icon: const Icon(Icons.add_comment_outlined, size: 20),
+                        onPressed: () => AskQuestionSheet.show(context, meeting),
+                      ),
+                    _pollTab => IconButton(
+                        tooltip: 'Start a poll',
+                        icon: const Icon(Icons.add_chart, size: 20),
+                        onPressed: () => CreatePollSheet.show(context, meeting),
+                      ),
+                    _ => const SizedBox.shrink(),
+                  },
+                ),
               IconButton(
                 tooltip: 'Hide panel',
                 icon: const Icon(Icons.close, size: 20),
@@ -242,7 +293,7 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
           ),
           Expanded(
             child: TabBarView(
-              controller: _tabs,
+              controller: tabs,
               children: [
                 ParticipantsList(meeting: meeting),
                 QuestionsPanel(meeting: meeting),
@@ -251,6 +302,7 @@ class _RoomScreenState extends State<RoomScreen> with SingleTickerProviderStateM
                     : SingleChildScrollView(
                         child: PollCard(meeting: meeting, poll: poll),
                       ),
+                if (meeting.isAdmin) AdminPanel(meeting: meeting),
               ],
             ),
           ),
