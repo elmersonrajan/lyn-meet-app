@@ -114,6 +114,8 @@ class AuthController extends ChangeNotifier {
   /// Single use on the server, so this is called once per sign-in and a repeat
   /// with the same token reads as a stale link rather than quietly working.
   Future<bool> completeSignIn(String token) async {
+    final wasSignedIn = isSignedIn;
+
     _phase = AuthPhase.redeeming;
     _error = null;
     _failure = null;
@@ -124,6 +126,16 @@ class AuthController extends ChangeNotifier {
       _set(AuthPhase.signedIn);
       return true;
     } on AuthException catch (err) {
+      // A spent token is not a reason to throw away a session that already
+      // works. The same link can be opened twice — tapped again, restored from
+      // history, or redeemed by the browser before the app was handed it — and
+      // the second attempt is refused as already used. Signing somebody out
+      // over that would be the app breaking its own sign-in.
+      if (wasSignedIn && err.failure != AuthFailure.notAuthorised) {
+        _set(AuthPhase.signedIn);
+        return false;
+      }
+
       _user = null;
       _failure = err.failure;
       _error = err.message;
