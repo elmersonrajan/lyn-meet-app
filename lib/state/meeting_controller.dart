@@ -307,6 +307,64 @@ class MeetingController extends ChangeNotifier {
     }
   }
 
+  /// Whether a rejoin is already under way, so two reconnects in quick
+  /// succession do not both try to rebuild the media.
+  bool _rejoining = false;
+
+  /// Takes the seat in the room again after the connection came back.
+  ///
+  /// Everything the server held is gone with the old peer: the transports were
+  /// closed with it, and every consumer on them. So this is a fresh join, not
+  /// a resume — the old media is torn down first, deliberately, rather than
+  /// left pointing at transports the server has forgotten.
+  ///
+  /// The event handlers are not re-registered. They are attached to the socket
+  /// itself, which Socket.IO reconnected rather than replaced, so they are
+  /// still live and doing it again would double every broadcast.
+  Future<void> _rejoin() async {
+    if (_rejoining) return;
+    _rejoining = true;
+    try {
+      _socket.log('rejoining after a dropped connection', {'meetingId': _meetingId});
+
+      await _mediasoup.dispose();
+      await media.clearRemote();
+
+      final ack = await _socket.emitAck(
+        'join-room',
+        {'meetingId': _meetingId},
+        Env.joinTimeout,
+      );
+
+      _hydrate(ack);
+
+      await _mediasoup.start(
+        routerRtpCapabilities:
+            Map<String, dynamic>.from(ack['routerRtpCapabilities'] as Map),
+        iceServers: (ack['iceServers'] as List?) ?? const [],
+        selfPeerId: _me?.id ?? '',
+      );
+
+      for (final producer in ProducerInfo.listFrom(ack['producers'])) {
+        await _mediasoup.consume(producer);
+      }
+
+      await _startMicrophone();
+      notifyListeners();
+    } catch (err) {
+      // The class itself may have ended while the connection was down, or the
+      // seat may no longer be available. Either way this is the end of the
+      // session rather than something to keep retrying silently.
+      debugPrint('[Meeting] rejoin failed: $err');
+      _finish(
+        EndReason.connectionLost,
+        err is SocketAckException ? err.message : 'Could not rejoin the class',
+      );
+    } finally {
+      _rejoining = false;
+    }
+  }
+
   /// Fills every list from the join acknowledgement.
   ///
   /// The server sends the entire room state in one reply, which is why a
@@ -597,7 +655,19 @@ class MeetingController extends ChangeNotifier {
     // last frame and the board keeps whatever was already drawn, so the app
     // looks fine while the class has stopped.
     connection.setSocketUp(true);
-    sub('connect', (_) => connection.setSocketUp(true));
+
+    // A dropped connection loses the seat in the room, not just the transport.
+    //
+    // Only a teacher gets a grace window; a student or an admin is removed the
+    // instant they disconnect. Socket.IO then reconnects the transport by
+    // itself and everything looks healthy — the socket is up, the bars are
+    // green — while the account is in no room at all, nothing arrives, and the
+    // join guard refuses to let them back in because the app still believes it
+    // is live. So a reconnect has to re-join rather than merely resume.
+    sub('connect', (_) {
+      connection.setSocketUp(true);
+      if (_phase == MeetingPhase.live) unawaited(_rejoin());
+    });
     sub('disconnect', (_) => connection.setSocketUp(false));
 
     // Socket.IO retries on its own; this only ends the class once it has
@@ -850,6 +920,11 @@ class MeetingController extends ChangeNotifier {
     _stageMode = 'whiteboard';
     whiteboard.clear();
     connection.reset();
+    // Both belong to the session that has just ended. Left set, a rejoin would
+    // be refused as already in progress, and the loudspeaker would not be
+    // claimed again for the next class.
+    _rejoining = false;
+    _routedAudio = false;
     notifyListeners();
   }
 

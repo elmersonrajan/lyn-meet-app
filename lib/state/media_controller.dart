@@ -71,6 +71,14 @@ class MediaController extends ChangeNotifier {
   /// room full of phones: without them, one student unmuting near a speaker
   /// feeds the lesson back to everyone.
   Future<MediaStream?> openMicrophone() async {
+    // Reused across a rejoin. Opening a second one would leave the first held
+    // — Android keeps the route to whichever is live — and on some devices the
+    // second request comes back silent because the first still owns the input.
+    final existing = _micStream;
+    if (existing != null && existing.getAudioTracks().isNotEmpty) {
+      return existing;
+    }
+
     try {
       final stream = await navigator.mediaDevices.getUserMedia({
         'audio': {
@@ -174,6 +182,24 @@ class MediaController extends ChangeNotifier {
         _audioTracks.remove(track.producerId);
         notifyListeners();
     }
+  }
+
+  /// Lets go of everything remote, keeping the renderers themselves.
+  ///
+  /// For a rejoin, where the tracks belong to transports the server has
+  /// already closed. The renderers are reused rather than rebuilt: they are
+  /// platform textures, and disposing them mid-session makes the stage flash
+  /// black for no reason when what is wanted is simply new content in them.
+  Future<void> clearRemote() async {
+    _cameraProducerId = null;
+    _screenProducerId = null;
+    _cameraPeerId = null;
+    _hasCamera = false;
+    _hasScreen = false;
+    _audioTracks.clear();
+    notifyListeners();
+    await cameraRenderer.setSrcObject(stream: null);
+    await screenRenderer.setSrcObject(stream: null);
   }
 
   void setMicOn(bool value) {
