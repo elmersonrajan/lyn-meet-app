@@ -107,7 +107,13 @@ class MediasoupService {
   void Function(String direction, String state)? onTransportState;
 
   /// Completes once the microphone producer exists on the server.
-  final Completer<void> _micReady = Completer<void>();
+  /// Recreated for each publish rather than held for the life of the service.
+  ///
+  /// A Completer answers once. Kept as a single field it stays completed from
+  /// the first microphone, so a rejoin after a dropped connection would wait
+  /// on it, be told immediately that the microphone was ready, and go on to
+  /// use a producer that no longer exists.
+  Completer<void>? _micReady;
 
   bool get hasMic => _micProducer != null;
   bool get ready => _device?.loaded == true && _recvTransport != null;
@@ -251,7 +257,8 @@ class MediasoupService {
 
   void _onProducer(Producer producer) {
     _micProducer = producer;
-    if (!_micReady.isCompleted) _micReady.complete();
+    final ready = _micReady;
+    if (ready != null && !ready.isCompleted) ready.complete();
   }
 
   /// Publishes the microphone.
@@ -268,6 +275,9 @@ class MediasoupService {
     final tracks = stream.getAudioTracks();
     if (tracks.isEmpty) throw StateError('No microphone track to publish');
 
+    final ready = Completer<void>();
+    _micReady = ready;
+
     transport.produce(
       track: tracks.first,
       stream: stream,
@@ -281,7 +291,7 @@ class MediasoupService {
       zeroRtpOnPause: true,
     );
 
-    await _micReady.future.timeout(
+    await ready.future.timeout(
       const Duration(seconds: 15),
       onTimeout: () => throw StateError('The microphone did not start'),
     );
