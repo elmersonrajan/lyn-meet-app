@@ -106,8 +106,11 @@ class _QuestionCardState extends State<QuestionCard> {
   @override
   Widget build(BuildContext context) {
     final question = widget.question;
+    final admin = widget.meeting.isAdmin;
     final answered = question.answered;
-    final showBox = question.isOpen && (!answered || _editing);
+    // Staff put the question; they do not answer it. Their view is the
+    // answers, which only they receive.
+    final showBox = !admin && question.isOpen && (!answered || _editing);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -206,6 +209,8 @@ class _QuestionCardState extends State<QuestionCard> {
                 ),
               ],
             ),
+          ] else if (admin) ...[
+            _AnswerRoll(meeting: widget.meeting, question: question),
           ] else if (answered) ...[
             Container(
               width: double.infinity,
@@ -264,6 +269,86 @@ class _QuestionCardState extends State<QuestionCard> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The answers to one question, as staff see them.
+///
+/// This list is empty for a student not because anything here hides it, but
+/// because the server sends answers to a socket.io room students are not in —
+/// so the words never reach their device at all. That is the difference
+/// between a class where nobody copies and one where the filtering is a
+/// promise the client is trusted to keep.
+class _AnswerRoll extends StatelessWidget {
+  const _AnswerRoll({required this.meeting, required this.question});
+
+  final MeetingController meeting;
+  final Question question;
+
+  @override
+  Widget build(BuildContext context) {
+    final answers = meeting.answersFor(question.id);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              answers.isEmpty
+                  ? 'No answers yet'
+                  : '${answers.length} answer${answers.length == 1 ? '' : 's'}',
+              style: const TextStyle(
+                color: Color(0xff9dc2ff),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            if (question.isOpen)
+              TextButton(
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final error = await meeting.closeQuestion(question.id);
+                  if (error != null) {
+                    messenger.showSnackBar(SnackBar(content: Text(error)));
+                  }
+                },
+                child: const Text('Stop accepting answers'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        for (final answer in answers)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xff121a26),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  answer.name,
+                  style: const TextStyle(
+                    color: Color(0xff9dc2ff),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                SelectableText(
+                  answer.text,
+                  style: const TextStyle(color: Color(0xffe6edf6), fontSize: 13.5),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

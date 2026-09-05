@@ -5,10 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/join_screen.dart';
+import 'screens/sign_in_screen.dart';
+import 'screens/teacher_blocked_screen.dart';
 import 'services/meeting_link.dart';
+import 'state/auth_controller.dart';
 import 'state/meeting_controller.dart';
+import 'theme.dart';
 
-/// The app shell: theme, the single MeetingController, and deep links.
+/// The app shell: theme, the controllers, deep links, and deciding which
+/// screen the signed-in account is entitled to.
 class LynMeetApp extends StatefulWidget {
   const LynMeetApp({super.key});
 
@@ -18,137 +23,114 @@ class LynMeetApp extends StatefulWidget {
 
 class _LynMeetAppState extends State<LynMeetApp> {
   final AppLinks _appLinks = AppLinks();
+  final AuthController _auth = AuthController();
   StreamSubscription<Uri>? _linkSub;
 
-  /// The meeting ID the app was opened with, if any.
+  /// The meeting from the link that opened the app, kept across sign-in so
+  /// somebody who followed a class link lands in that class rather than at a
+  /// blank field.
   String? _pendingMeetingId;
 
   @override
   void initState() {
     super.initState();
     _wireDeepLinks();
+    unawaited(_auth.restore());
   }
 
-  /// A teacher shares one link with the whole class. On a phone that link has
-  /// to reach the join field, or every student has to be told the code twice.
+  /// One link does two jobs.
   ///
-  /// Both entry points matter and they are different events: the link that
-  /// launched a closed app, and a link tapped while the app is already open.
+  /// A teacher shares `?lynmeet=<id>` with the class. The platform sends people
+  /// back to that same address with `TockenID=` attached once they have signed
+  /// in. Both arrive here: the meeting fills the join field, and the token is
+  /// redeemed for a session.
+  ///
+  /// This is why claiming the domain mattered. The sign-in round trip returns
+  /// to a URL the app owns, so the token comes back into the app instead of
+  /// landing in a browser tab the app cannot read.
   Future<void> _wireDeepLinks() async {
     try {
-      final initial = await _appLinks.getInitialLink();
-      final id = readMeetingIdFromUri(initial);
-      if (id.isNotEmpty && mounted) {
-        setState(() => _pendingMeetingId = id);
-      }
+      await _handleLink(await _appLinks.getInitialLink());
     } catch (_) {
-      // No link is the normal case, not a failure.
+      // Opened from the launcher rather than a link, which is the normal case.
     }
 
     _linkSub = _appLinks.uriLinkStream.listen(
-      (uri) {
-        final id = readMeetingIdFromUri(uri);
-        if (id.isNotEmpty && mounted) {
-          setState(() => _pendingMeetingId = id);
-        }
-      },
+      (uri) => unawaited(_handleLink(uri)),
       onError: (_) {},
     );
+  }
+
+  Future<void> _handleLink(Uri? uri) async {
+    if (uri == null) return;
+
+    final meetingId = readMeetingIdFromUri(uri);
+    if (meetingId.isNotEmpty && mounted) {
+      setState(() => _pendingMeetingId = meetingId);
+    }
+
+    final token = readHandoffToken(uri);
+    if (token.isNotEmpty) await _auth.completeSignIn(token);
   }
 
   @override
   void dispose() {
     _linkSub?.cancel();
+    _auth.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => MeetingController(),
-      child: Builder(
-        builder: (context) {
-          // The media and whiteboard controllers notify separately from the
-          // meeting itself, so a stroke arriving does not rebuild the
-          // participant list and a track arriving does not redraw the board.
-          final meeting = context.read<MeetingController>();
-          return MultiProvider(
-            providers: [
-              ChangeNotifierProvider.value(value: meeting.media),
-              ChangeNotifierProvider.value(value: meeting.whiteboard),
-            ],
-            child: MaterialApp(
-              title: 'LYN MEET',
-              debugShowCheckedModeBanner: false,
-              theme: _theme(),
-              home: JoinScreen(initialMeetingId: _pendingMeetingId),
-            ),
-          );
-        },
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: _auth),
+        ChangeNotifierProvider(create: (_) => MeetingController()),
+      ],
+      child: MaterialApp(
+        title: 'LYN MEET',
+        debugShowCheckedModeBanner: false,
+        theme: lynMeetTheme(),
+        home: Consumer<AuthController>(
+          builder: (context, auth, _) => _Gate(
+            auth: auth,
+            pendingMeetingId: _pendingMeetingId,
+          ),
+        ),
       ),
     );
   }
+}
 
-  /// Dark by default and not switchable.
-  ///
-  /// A class is watched for an hour, often in a dim room, and the stage is a
-  /// white board. Everything around it stays dark so the board is the bright
-  /// thing on the screen rather than competing with the chrome.
-  ThemeData _theme() {
-    const surface = Color(0xff0b1017);
-    const panel = Color(0xff141d29);
-    const accent = Color(0xff2f6bd8);
+/// Chooses the screen from the account rather than from anything the app
+/// decided for itself.
+class _Gate extends StatelessWidget {
+  const _Gate({required this.auth, required this.pendingMeetingId});
 
-    final base = ThemeData.dark(useMaterial3: true);
+  final AuthController auth;
+  final String? pendingMeetingId;
 
-    return base.copyWith(
-      scaffoldBackgroundColor: surface,
-      colorScheme: base.colorScheme.copyWith(
-        primary: accent,
-        surface: surface,
-        secondary: const Color(0xff35d07f),
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: panel,
-        elevation: 0,
-        centerTitle: false,
-      ),
-      tabBarTheme: const TabBarThemeData(
-        labelColor: Colors.white,
-        unselectedLabelColor: Color(0xff8b9cb3),
-        indicatorColor: accent,
-        dividerColor: Color(0xff1e2937),
-      ),
-      dialogTheme: const DialogThemeData(backgroundColor: panel),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: panel,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xff243043)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: accent, width: 1.6),
-        ),
-        labelStyle: const TextStyle(color: Color(0xff8b9cb3)),
-        hintStyle: const TextStyle(color: Color(0xff5c6b80)),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: accent,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-      ),
-      listTileTheme: const ListTileThemeData(
-        contentPadding: EdgeInsets.symmetric(horizontal: 16),
-      ),
+  @override
+  Widget build(BuildContext context) {
+    if (auth.phase == AuthPhase.checking) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (!auth.isSignedIn) {
+      return SignInScreen(pendingMeetingId: pendingMeetingId);
+    }
+
+    // A teacher is turned away here rather than in the room, so they find out
+    // before they have taken the class's only teacher slot.
+    if (auth.user!.isTeacher) return const TeacherBlockedScreen();
+
+    // The session travels with the socket from here on, set before the join
+    // screen builds so the first connection is already authenticated.
+    context.read<MeetingController>().useSession(auth.sessionCookie);
+
+    return JoinScreen(
+      initialMeetingId: pendingMeetingId,
+      user: auth.user!,
     );
   }
 }

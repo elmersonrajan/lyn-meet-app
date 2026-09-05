@@ -59,6 +59,13 @@ class MeetingController extends ChangeNotifier {
   /// Whether the loudspeaker has been claimed yet this session.
   bool _routedAudio = false;
 
+  /// Hands the signed-in session to the socket.
+  ///
+  /// Nothing can be joined without it: the handshake is refused outright, and
+  /// the role every screen keys off is read from the account behind this
+  /// cookie rather than from anything the app asks for.
+  void useSession(String? cookie) => _socket.setSessionCookie(cookie);
+
   void _onRemoteTrack(RemoteTrack track) {
     unawaited(media.attach(track));
     // The first voice to arrive is what makes the routing matter. WebRTC
@@ -118,6 +125,24 @@ class MeetingController extends ChangeNotifier {
   /// Whether a teacher or coordinator is in the room. The microphone depends
   /// on it, so the control bar needs to know.
   bool get hasStaff => _participants.any((p) => p.isStaff && !p.disconnected);
+
+  /// The role the server granted **for this meeting**, which is not always the
+  /// account's own. Enrolment can lower it — a teacher in someone else's class
+  /// joins as a student — so this, not the signed-in role, decides the UI.
+  String get myRole => _me?.role ?? 'student';
+
+  /// Whether this session may use the staff-only actions. Asked of the room
+  /// rather than of the account, for the reason above.
+  bool get isAdmin => _me?.isStaff ?? false;
+
+  /// Written answers, visible only to staff.
+  ///
+  /// The server sends these to a second socket.io room that students are not
+  /// in, so for a student this map is empty because nothing ever arrives —
+  /// not because anything here filters it.
+  final Map<String, List<Answer>> _answers = {};
+  List<Answer> answersFor(String questionId) =>
+      List.unmodifiable(_answers[questionId] ?? const <Answer>[]);
 
   /// Whether the student may unmute at all.
   ///
@@ -190,18 +215,29 @@ class MeetingController extends ChangeNotifier {
   /// The microphone comes last and is allowed to fail — a student who refuses
   /// the permission, or whose phone has no working input, should still get the
   /// lesson.
-  Future<void> join({required String name, required String meetingId}) async {
+  /// Joins a class as whoever the session says you are.
+  ///
+  /// There is no name and no role in the payload any more, and that is the
+  /// point: the server takes identity from the authenticated handshake and
+  /// discards a client-supplied role outright, logging it as a probe. Sending
+  /// one would not grant it — the lobby that let anyone arrive as a teacher is
+  /// exactly what the change closed.
+  ///
+  /// The role that comes back can be *lower* than the account's own. A teacher
+  /// walking into a class that is not theirs joins as a student; enrolment can
+  /// demote, never promote.
+  Future<void> join({required String meetingId, required String signedInAs}) async {
     if (_phase == MeetingPhase.joining || _phase == MeetingPhase.live) return;
 
-    _displayName = name.trim();
+    _displayName = signedInAs;
     _meetingId = normalizeMeetingId(meetingId);
     _error = null;
     _phase = MeetingPhase.joining;
     notifyListeners();
 
     try {
-      if (_displayName.isEmpty || _meetingId.isEmpty) {
-        throw StateError('Enter your name and the meeting ID');
+      if (_meetingId.isEmpty) {
+        throw StateError('Enter the meeting ID');
       }
 
       await media.initRenderers();
@@ -209,11 +245,7 @@ class MeetingController extends ChangeNotifier {
 
       final ack = await _socket.emitAck(
         'join-room',
-        {
-          'name': _displayName,
-          'meetingId': _meetingId,
-          'role': Env.role,
-        },
+        {'meetingId': _meetingId},
         Env.joinTimeout,
       );
 
@@ -239,7 +271,7 @@ class MeetingController extends ChangeNotifier {
       unawaited(WakelockPlus.enable());
 
       _phase = MeetingPhase.live;
-      _socket.log('student joined', {'meetingId': _meetingId});
+      _socket.log('joined', {'meetingId': _meetingId, 'role': myRole});
       notifyListeners();
     } catch (err) {
       _error = err is SocketAckException ? err.message : err.toString();
@@ -462,6 +494,23 @@ class MeetingController extends ChangeNotifier {
       notifyListeners();
     });
 
+    // Staff only. Students are not in the room this is sent to, so for them
+    // this handler simply never fires.
+    sub('question-answer', (data) {
+      if (data is! Map) return;
+      final answer = Answer.fromMap(Map<String, dynamic>.from(data));
+      final list = _answers.putIfAbsent(answer.questionId, () => <Answer>[]);
+      // Answers are edited in place until the question closes, so a second one
+      // from the same person replaces theirs rather than stacking up.
+      final index = list.indexWhere((a) => a.peerId == answer.peerId);
+      if (index == -1) {
+        list.add(answer);
+      } else {
+        list[index] = answer;
+      }
+      notifyListeners();
+    });
+
     sub('question-closed', (data) {
       if (data is! Map) return;
       final id = (data['questionId'] ?? '').toString();
@@ -681,6 +730,81 @@ class MeetingController extends ChangeNotifier {
       return err is SocketAckException ? err.message : 'Could not send your answer';
     }
   }
+
+  // --- staff-only actions ------------------------------------------------
+  //
+  // Every one of these is refused by the server for a student, so the UI that
+  // offers them is hidden rather than disabled — a control that only ever
+  // produces an error is worse than no control. The guard here is a second
+  // line, not the enforcement: that lives in requireStaff on the server.
+
+  Future<String?> _staffAction(String event, [Map<String, dynamic> payload = const {}]) async {
+    if (!isAdmin) return 'Only a teacher or coordinator can do that';
+    try {
+      await _socket.emitAck(event, payload);
+      return null;
+    } catch (err) {
+      return err is SocketAckException ? err.message : 'That did not work';
+    }
+  }
+
+  /// Mutes every student at once. They can unmute again themselves — this is
+  /// a way to quieten a room, not a lasting restriction.
+  Future<String?> muteEveryone() => _staffAction('mute-others');
+
+  /// Removes somebody from the class. They are told why, and can rejoin unless
+  /// the class itself is closed.
+  Future<String?> removeParticipant(String peerId) =>
+      _staffAction('remove-participant', {'peerId': peerId});
+
+  Future<String?> lowerHand(String peerId) =>
+      _staffAction('lower-hand', {'peerId': peerId});
+
+  Future<String?> lowerAllHands() => _staffAction('lower-all-hands');
+
+  /// Chooses what the class is looking at: the whiteboard or a shared screen.
+  Future<String?> setStage(String mode) => _staffAction('set-stage', {'mode': mode});
+
+  /// Asks the class a written question. Answers come back to staff only.
+  Future<String?> askQuestion(String text) {
+    final body = text.trim();
+    if (body.isEmpty) return Future.value('Write the question first');
+    return _staffAction('ask-question', {'text': body});
+  }
+
+  Future<String?> closeQuestion(String questionId) =>
+      _staffAction('close-question', {'questionId': questionId});
+
+  /// Puts a multiple-choice poll to the class.
+  ///
+  /// Four options, at least one correct. How many are correct is never sent to
+  /// students while it runs, so marking two here does not tell them to pick
+  /// two — which is the whole reason the server withholds it.
+  Future<String?> createPoll({
+    required String question,
+    required List<String> options,
+    required List<int> correct,
+    required Duration duration,
+  }) {
+    if (question.trim().isEmpty) return Future.value('Write the question first');
+    if (options.length != 4 || options.any((o) => o.trim().isEmpty)) {
+      return Future.value('Fill in all four options');
+    }
+    if (correct.isEmpty) return Future.value('Mark which answers are correct');
+    return _staffAction('create-poll', {
+      'question': question.trim(),
+      'options': options.map((o) => o.trim()).toList(),
+      'correct': (correct.toList()..sort()),
+      'durationMs': duration.inMilliseconds,
+    });
+  }
+
+  Future<String?> endPoll(String pollId) =>
+      _staffAction('end-poll', {'pollId': pollId});
+
+  /// Ends the class for everybody. Deliberately has no undo here — the
+  /// confirmation belongs in the UI, where the person can read what it means.
+  Future<String?> closeSession() => _staffAction('close-session');
 
   /// Leaves deliberately. Tells the server first so attendance records this as
   /// a clean exit rather than a dropped connection.

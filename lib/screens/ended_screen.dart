@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/meeting_controller.dart';
-import 'join_screen.dart';
 
 /// What the student sees when the class is over.
 ///
@@ -63,10 +62,10 @@ class EndedScreen extends StatelessWidget {
                     child: FilledButton(
                       onPressed: () {
                         meeting.reset();
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const JoinScreen()),
-                          (route) => false,
-                        );
+                        // Back to the root, which decides what to show from
+                        // the session rather than assuming a join screen —
+                        // whoever returns may need to sign in again first.
+                        Navigator.of(context).popUntil((route) => route.isFirst);
                       },
                       child: const Padding(
                         padding: EdgeInsets.symmetric(vertical: 14),

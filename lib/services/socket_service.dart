@@ -22,13 +22,36 @@ class SocketService {
   /// would otherwise leave these futures pending forever.
   final Set<Completer<Map<String, dynamic>>> _pending = {};
 
+  /// The session cookie, sent on the handshake.
+  ///
+  /// This is what says who is connecting. The server refuses the socket
+  /// outright without it and re-reads the role from the platform directory
+  /// rather than believing anything the client claims — a `role` in the join
+  /// payload is discarded and logged as a probe. A native client has no cookie
+  /// jar, so it travels as an explicit header.
+  String? _cookie;
+
   io.Socket get socket => _socket ??= _create();
 
   bool get isConnected => _socket?.connected ?? false;
 
+  /// Sets the session used for the next connection.
+  ///
+  /// Changing it tears down any existing socket, because identity is fixed at
+  /// handshake time: reusing a live connection after signing in as somebody
+  /// else would keep the previous account's role for the rest of the session.
+  void setSessionCookie(String? cookie) {
+    if (_cookie == cookie) return;
+    _cookie = cookie;
+    if (_socket != null) dispose();
+  }
+
   io.Socket _create() {
     final options = io.OptionBuilder()
         .setPath(Env.socketPath)
+        .setExtraHeaders({
+          if (_cookie != null && _cookie!.isNotEmpty) 'Cookie': _cookie!,
+        })
         // Websocket only. The browser client lists polling as a fallback, but
         // a native client has no same-origin story for it, and a poll would
         // carry an Origin the server's CORS list does not know about.

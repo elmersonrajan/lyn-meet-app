@@ -91,6 +91,26 @@ String readMeetingIdFromUri(Uri? uri) {
   }
 }
 
+/// Pulls the one-time sign-in token out of a link, or "" when there is none.
+///
+/// The platform spells the parameter `TockenID`. That is a typo at their end
+/// and it is load-bearing — matching the corrected spelling instead would
+/// authenticate nobody. `TokenID` is accepted alongside it so a fix on their
+/// side does not break sign-in on the day it ships.
+///
+/// The token grants nothing by itself: it is an opaque pointer into a table
+/// only the two servers can read, it is deleted as it is redeemed, and the
+/// role is looked up from the directory afterwards. So there is nothing in it
+/// to forge, and nothing worth keeping once it has been spent.
+String readHandoffToken(Uri? uri) {
+  if (uri == null) return '';
+  for (final key in const ['TockenID', 'TokenID', 'tockenId', 'tokenId']) {
+    final found = uri.queryParameters[key];
+    if (found != null && found.trim().isNotEmpty) return found.trim();
+  }
+  return '';
+}
+
 /// The room key the server will actually use.
 ///
 /// Upper-casing is not cosmetic. The backend keys rooms by this exact string

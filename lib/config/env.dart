@@ -35,10 +35,18 @@ class Env {
   /// Socket.IO mount point — matches the backend's default.
   static const String socketPath = '/socket.io';
 
-  /// The role this build joins as. A student app has no role picker: the value
-  /// is baked in, and the server independently treats anything it does not
-  /// recognise as a student anyway (normalizeRole in roomManager.js).
-  static const String role = 'student';
+  /// Where signing in starts. The platform authenticates, then sends the
+  /// browser back to the meeting link with a one-time token attached — and
+  /// that link is one this app claims, so the token arrives here.
+  static const String loginUrl = String.fromEnvironment(
+    'LYNMEET_LOGIN',
+    defaultValue: 'https://lynindia.in/sso/authorize',
+  );
+
+  /// The session cookie the server sets, matching SESSION_COOKIE_NAME on the
+  /// backend. Named here because a native client has no cookie jar and has to
+  /// pick this one out of a Set-Cookie header itself.
+  static const String sessionCookieName = 'lynmeet_sid';
 
   /// How long to wait for join-room before giving up and showing an error.
   static const Duration joinTimeout = Duration(seconds: 20);
