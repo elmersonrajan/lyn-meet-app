@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/appreciation.dart';
 import '../state/meeting_controller.dart';
 
 /// What an administrator can do to a running class.
@@ -42,6 +43,40 @@ class AdminPanel extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       children: [
+        const _SectionLabel('Praise the class'),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 0, 4, 10),
+          child: Text(
+            'Everyone sees it, with confetti. Good for the moment somebody '
+            'gets a hard question right.',
+            style: TextStyle(color: Color(0xff7a8ba3), fontSize: 11.5, height: 1.4),
+          ),
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final award in Appreciation.catalogue)
+              _AwardButton(
+                award: award,
+                onTap: () => _run(
+                  context,
+                  () => meeting.appreciate(award.id),
+                  'Sent "${award.message}" to the class',
+                ),
+              ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+        const _SectionLabel('How the class is doing'),
+        _ReactionTally(meeting: meeting, onClear: () => _run(
+              context,
+              meeting.clearReactions,
+              'Cleared',
+            )),
+
+        const SizedBox(height: 8),
         const _SectionLabel('The room'),
         _ActionTile(
           icon: Icons.mic_off,
@@ -280,6 +315,107 @@ class _StageChoice extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// One piece of praise, as a button.
+class _AwardButton extends StatelessWidget {
+  const _AwardButton({required this.award, required this.onTap});
+
+  final Appreciation award;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xff17202e),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xff2a3547)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(award.emoji, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Text(
+                award.message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// How many thumbs are up and down right now.
+///
+/// The count is the point, not who pressed what. A row of names against "I am
+/// lost" would stop anybody pressing it, which would cost the teacher the one
+/// signal a quiet student will actually give.
+class _ReactionTally extends StatelessWidget {
+  const _ReactionTally({required this.meeting, required this.onClear});
+
+  final MeetingController meeting;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final up = meeting.thumbsUp;
+    final down = meeting.thumbsDown;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xff17202e),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.thumb_up, size: 17, color: Color(0xff35d07f)),
+          const SizedBox(width: 6),
+          Text(
+            '$up',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Icon(
+            Icons.thumb_down,
+            size: 17,
+            color: down > 0 ? const Color(0xffff8b8b) : const Color(0xff6b7a8d),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$down',
+            style: TextStyle(
+              color: down > 0 ? const Color(0xffff8b8b) : Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const Spacer(),
+          if (up > 0 || down > 0)
+            TextButton(onPressed: onClear, child: const Text('Clear')),
+        ],
       ),
     );
   }

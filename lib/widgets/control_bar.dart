@@ -19,6 +19,91 @@ class ControlBar extends StatelessWidget {
   final VoidCallback onLeave;
   final VoidCallback onShowPeople;
 
+  /// Asks which thumb, rather than cycling through them.
+  ///
+  /// A single button that steps up, down and off is quick to build and awful
+  /// to use: a student who is lost has to press twice and may land on "I am
+  /// following" on the way. Two clear choices, and pressing the one already
+  /// showing takes it back.
+  Future<void> _react(BuildContext context, MeetingController meeting) async {
+    final current = meeting.myReaction;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xff141d29),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Tell your teacher how it is going',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Nobody else is told which you picked — only how many.',
+                  style: TextStyle(color: Color(0xff8b9cb3), fontSize: 12),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.thumb_up, color: Color(0xff35d07f)),
+              title: const Text('I am following',
+                  style: TextStyle(color: Colors.white)),
+              trailing: current == 'up'
+                  ? const Icon(Icons.check, color: Color(0xff35d07f), size: 20)
+                  : null,
+              onTap: () => Navigator.of(context).pop('up'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.thumb_down, color: Color(0xffff8b8b)),
+              title: const Text('I am lost',
+                  style: TextStyle(color: Colors.white)),
+              subtitle: const Text(
+                'A quiet way to say so without interrupting',
+                style: TextStyle(color: Color(0xff7a8ba3), fontSize: 11.5),
+              ),
+              trailing: current == 'down'
+                  ? const Icon(Icons.check, color: Color(0xffff8b8b), size: 20)
+                  : null,
+              onTap: () => Navigator.of(context).pop('down'),
+            ),
+            if (current != null)
+              ListTile(
+                leading: const Icon(Icons.close, color: Color(0xff8b9cb3)),
+                title: const Text('Take it back',
+                    style: TextStyle(color: Color(0xffb9c6d6))),
+                onTap: () => Navigator.of(context).pop(current),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == null || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final error = await meeting.setReaction(choice);
+    if (error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = meeting.media;
@@ -57,6 +142,27 @@ class ControlBar extends StatelessWidget {
             activeColor: const Color(0xffffc44d),
             onTap: meeting.toggleHand,
           ),
+          // Students only. The server refuses a thumb from staff, so an admin
+          // sees the room's tally in the people list instead of a button that
+          // would only ever be turned down.
+          if (!meeting.isAdmin)
+            _ControlButton(
+              icon: meeting.myReaction == 'down'
+                  ? Icons.thumb_down
+                  : meeting.myReaction == 'up'
+                      ? Icons.thumb_up
+                      : Icons.thumbs_up_down_outlined,
+              label: meeting.myReaction == 'down'
+                  ? 'Lost'
+                  : meeting.myReaction == 'up'
+                      ? 'Following'
+                      : 'React',
+              active: meeting.myReaction != null,
+              activeColor: meeting.myReaction == 'down'
+                  ? const Color(0xffc0392b)
+                  : const Color(0xff35d07f),
+              onTap: () => _react(context, meeting),
+            ),
           _ControlButton(
             icon: Icons.people_outline,
             label: 'People',

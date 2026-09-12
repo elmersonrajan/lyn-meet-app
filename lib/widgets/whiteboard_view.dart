@@ -8,9 +8,20 @@ import '../state/whiteboard_controller.dart';
 /// The board is white regardless of the app's dark theme: it is a photograph
 /// of the teacher's board, and inverting it would change what the ink means.
 class WhiteboardView extends StatelessWidget {
-  const WhiteboardView({super.key, required this.controller});
+  const WhiteboardView({
+    super.key,
+    required this.controller,
+    this.transparent = false,
+  });
 
   final WhiteboardController controller;
+
+  /// Whether something is already drawn underneath.
+  ///
+  /// The board paints itself white so ink on an empty page is readable, but
+  /// when it sits over a picture or a document page that white would hide the
+  /// very thing being annotated.
+  final bool transparent;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +32,18 @@ class WhiteboardView extends StatelessWidget {
         // it is given, with the surround left dark. Filling a portrait phone
         // with a landscape board would stretch the handwriting; letterboxing
         // costs some height and keeps it true.
+        if (transparent) {
+          return controller.isEmpty
+              ? const SizedBox.shrink()
+              : CustomPaint(
+                  painter: _WhiteboardPainter(
+                    strokes: controller.strokes,
+                    revision: controller.revision,
+                  ),
+                  size: Size.infinite,
+                );
+        }
+
         return ColoredBox(
           color: const Color(0xff0d1520),
           child: Center(
