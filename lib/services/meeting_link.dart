@@ -99,16 +99,58 @@ String readMeetingIdFromUri(Uri? uri) {
 /// side does not break sign-in on the day it ships.
 ///
 /// The token grants nothing by itself: it is an opaque pointer into a table
-/// only the two servers can read, it is deleted as it is redeemed, and the
-/// role is looked up from the directory afterwards. So there is nothing in it
-/// to forge, and nothing worth keeping once it has been spent.
+/// only the two servers can read, and the role is looked up from the directory
+/// afterwards. So there is nothing in it to forge.
+///
+/// It is *meant* to be single use — the server deletes the row as it redeems
+/// it — but that delete is deliberately allowed to fail rather than turn a
+/// missing DELETE grant into an outage. So a token may well still be in the
+/// table and still work, and nothing here should assume otherwise.
 String readHandoffToken(Uri? uri) {
   if (uri == null) return '';
-  for (final key in const ['TockenID', 'TokenID', 'tockenId', 'tokenId']) {
-    final found = uri.queryParameters[key];
+  for (final key in const ['TockenID', 'TokenID', 'tockenid', 'tokenid']) {
+    final found = _rawQueryValue(uri, key);
     if (found != null && found.trim().isNotEmpty) return found.trim();
   }
   return '';
+}
+
+/// One query value, percent-decoded but never plus-decoded.
+///
+/// `Uri.queryParameters` would be the obvious way to read this and it is the
+/// wrong one. In a query string it treats `+` as a space, which is correct for
+/// a submitted form and wrong for a token: the server accepts
+/// `[A-Za-z0-9._~+/-]`, so these are base64 and a `+` in the middle is part of
+/// the value.
+///
+/// Turning it into a space produced exactly the failure that looked like a
+/// spent link — the server trims at the first character outside that set, the
+/// shortened token matches no row, and the reply is "this sign-in link has
+/// expired or was already used" about a token sitting in the table.
+///
+/// Reading the raw query and decoding only percent escapes is right either
+/// way: a platform that sends a bare `+` keeps it, and one that sends `%2B`
+/// still decodes to the same character.
+String? _rawQueryValue(Uri uri, String key) {
+  final query = uri.query;
+  if (query.isEmpty) return null;
+
+  for (final pair in query.split('&')) {
+    if (pair.isEmpty) continue;
+    final eq = pair.indexOf('=');
+    if (eq <= 0) continue;
+    if (pair.substring(0, eq) != key) continue;
+
+    final raw = pair.substring(eq + 1);
+    try {
+      return Uri.decodeComponent(raw);
+    } catch (_) {
+      // A malformed escape should not lose the whole token — the server trims
+      // anything it does not recognise anyway.
+      return raw;
+    }
+  }
+  return null;
 }
 
 /// The room key the server will actually use.

@@ -35,6 +35,35 @@ void main() {
       expect(readHandoffToken(uri), 'ya29.token');
     });
 
+    test('keeps a plus, because that is part of a base64 token', () {
+      // The server accepts [A-Za-z0-9._~+/-] and trims at the first character
+      // outside it. Uri.queryParameters turns a query-string '+' into a space,
+      // which cut tokens short — and the server then reported "this sign-in
+      // link has expired or was already used" about a row sitting in its own
+      // table. The symptom pointed at expiry; the cause was punctuation.
+      final uri = Uri.parse(
+        'https://class.lynindia.in/?TockenID=ab+cd/ef-gh_ij.kl~mn0123456789',
+      );
+      expect(readHandoffToken(uri), 'ab+cd/ef-gh_ij.kl~mn0123456789');
+    });
+
+    test('a percent-encoded plus decodes to the same character', () {
+      // Whichever way the platform writes it, the token must come out the same.
+      expect(
+        readHandoffToken(Uri.parse('https://x/?TockenID=ab%2Bcd')),
+        'ab+cd',
+      );
+    });
+
+    test('reads the token when it is not the first parameter', () {
+      expect(
+        readHandoffToken(
+          Uri.parse('https://x/?lynmeet=10214&other=1&TockenID=ya29.abc'),
+        ),
+        'ya29.abc',
+      );
+    });
+
     test('an empty parameter is not a token', () {
       expect(readHandoffToken(Uri.parse('https://x/?TockenID=')), '');
       expect(readHandoffToken(Uri.parse('https://x/?TockenID=%20')), '');
