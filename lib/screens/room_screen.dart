@@ -6,6 +6,7 @@ import '../state/meeting_controller.dart';
 import '../widgets/admin_compose.dart';
 import '../widgets/admin_panel.dart';
 import '../widgets/audio_route_button.dart';
+import '../widgets/celebration_overlay.dart';
 import '../widgets/connection_indicator.dart';
 import '../widgets/control_bar.dart';
 import '../widgets/participants_list.dart';
@@ -138,7 +139,14 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               Text(
-                '${meeting.participants.length} in the class',
+                // The class's own name when the platform gave us one. A
+                // ScheduleID is a number and tells a student nothing about
+                // which lesson they have walked into.
+                meeting.className.isEmpty
+                    ? '${meeting.participants.length} in the class'
+                    : '${meeting.className} · ${meeting.participants.length}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 11.5, color: Color(0xff8b9cb3)),
               ),
             ],
@@ -211,6 +219,7 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
   }
 
   Widget _stage(MeetingController meeting, Poll? poll) {
+    final award = meeting.appreciation;
     return Stack(
       children: [
         Positioned.fill(child: StageView(meeting: meeting)),
@@ -226,6 +235,15 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
             child: SingleChildScrollView(
               child: PollCard(meeting: meeting, poll: poll),
             ),
+          ),
+
+        // Over everything, including a poll. Praise is brief and it is the one
+        // thing in the room worth interrupting for.
+        if (award != null)
+          CelebrationOverlay(
+            key: ValueKey(award.at),
+            appreciation: award,
+            onDone: meeting.clearAppreciation,
           ),
       ],
     );

@@ -47,6 +47,15 @@ class ParticipantsList extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              if (meeting.thumbsDown > 0) ...[
+                const Icon(Icons.thumb_down, size: 13, color: Color(0xffff8b8b)),
+                const SizedBox(width: 4),
+                Text(
+                  '${meeting.thumbsDown}',
+                  style: const TextStyle(color: Color(0xffff8b8b), fontSize: 12),
+                ),
+                const SizedBox(width: 12),
+              ],
               if (hands > 0)
                 Text(
                   '$hands hand${hands == 1 ? '' : 's'} up',
@@ -194,6 +203,17 @@ class _PeerRow extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (peer.reaction != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Icon(
+                peer.isConfused ? Icons.thumb_down : Icons.thumb_up,
+                size: 15,
+                color: peer.isConfused
+                    ? const Color(0xffff8b8b)
+                    : const Color(0xff35d07f),
+              ),
+            ),
           if (peer.handRaised)
             const Padding(
               padding: EdgeInsets.only(right: 8),
@@ -214,6 +234,8 @@ class _PeerRow extends StatelessWidget {
               onSelected: (choice) async {
                 if (choice == 'lower') {
                   await meeting.lowerHand(peer.id);
+                } else if (choice == 'mute') {
+                  await meeting.muteParticipant(peer.id);
                 } else if (choice == 'remove') {
                   await _remove(context);
                 }
@@ -223,6 +245,13 @@ class _PeerRow extends StatelessWidget {
                   const PopupMenuItem(
                     value: 'lower',
                     child: Text('Lower their hand'),
+                  ),
+                // Staff mute themselves, and the server says so — offering it
+                // against another admin would only earn a refusal.
+                if (!peer.isStaff && !peer.audioMuted)
+                  const PopupMenuItem(
+                    value: 'mute',
+                    child: Text('Mute their microphone'),
                   ),
                 const PopupMenuItem(
                   value: 'remove',

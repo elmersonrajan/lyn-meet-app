@@ -4,11 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../config/env.dart';
+import '../models/appreciation.dart';
+import '../models/board.dart';
 import '../models/peer.dart';
 import '../models/poll.dart';
 import '../models/question.dart';
 import '../models/producer_info.dart';
 import '../models/recording_state.dart';
+import '../models/shared_media.dart';
 import '../models/stroke.dart';
 import '../services/mediasoup_service.dart';
 import '../services/meeting_link.dart';
@@ -64,7 +67,24 @@ class MeetingController extends ChangeNotifier {
   /// Nothing can be joined without it: the handshake is refused outright, and
   /// the role every screen keys off is read from the account behind this
   /// cookie rather than from anything the app asks for.
-  void useSession(String? cookie) => _socket.setSessionCookie(cookie);
+  void useSession(String? cookie) {
+    _sessionCookie = cookie;
+    _socket.setSessionCookie(cookie);
+  }
+
+  String? _sessionCookie;
+
+  /// Headers for fetching a board's image or document.
+  ///
+  /// Those are served behind the same sign-in as everything else — a class's
+  /// material is not public — and a plain Image.network carries no cookie, so
+  /// without this every board with a picture on it loads as a broken image.
+  Map<String, String> get assetHeaders =>
+      _sessionCookie == null ? const {} : {'Cookie': _sessionCookie!};
+
+  /// Turns a server path into a full address.
+  String assetUrl(String path) =>
+      path.startsWith('http') ? path : '${Env.serverUrl}$path';
 
   void _onRemoteTrack(RemoteTrack track) {
     unawaited(media.attach(track));
@@ -100,6 +120,27 @@ class MeetingController extends ChangeNotifier {
 
   RecordingState _recording = RecordingState.idle;
 
+  /// The platform's own name for this lesson. A room id is a ScheduleID and
+  /// tells a student nothing about which class they are sitting in.
+  String _className = '';
+
+  /// The whiteboards in this class and which one is live. A student follows;
+  /// only a teacher can switch.
+  List<BoardTab> _boards = const [];
+  String _activeBoardId = '';
+
+  /// What the live board is drawn over, and where the class is looking at it.
+  BoardImage? _boardImage;
+  BoardDocument? _boardDocument;
+  BoardView _boardView = BoardView.flat;
+
+  /// A clip the teacher is playing, if any. Named apart from [media], which
+  /// is the microphone and the video renderers.
+  SharedMedia? _clip;
+
+  /// The most recent piece of praise, held only long enough to celebrate it.
+  Appreciation? _appreciation;
+
   /// True while the teacher is inside their reconnect grace window. The class
   /// carries on; the banner explains why nobody is talking.
   bool _teacherAway = false;
@@ -118,6 +159,27 @@ class MeetingController extends ChangeNotifier {
   Set<String> get activeSpeakers => _activeSpeakers;
   String get stageMode => _stageMode;
   RecordingState get recording => _recording;
+  String get className => _className;
+  List<BoardTab> get boards => _boards;
+  String get activeBoardId => _activeBoardId;
+  BoardImage? get boardImage => _boardImage;
+  BoardDocument? get boardDocument => _boardDocument;
+  BoardView get boardView => _boardView;
+  SharedMedia? get clip => _clip;
+  Appreciation? get appreciation => _appreciation;
+
+  /// How many people are showing each thumb, which is the only reason a
+  /// student's reaction is worth broadcasting at all.
+  int get thumbsUp => _participants.where((p) => p.isFollowing).length;
+  int get thumbsDown => _participants.where((p) => p.isConfused).length;
+
+  /// This student's own thumb, so the button can show what is already set.
+  String? get myReaction {
+    for (final peer in _participants) {
+      if (peer.id == _me?.id) return peer.reaction;
+    }
+    return null;
+  }
   bool get teacherAway => _teacherAway;
   bool get handRaised => _handRaised;
   bool get isLive => _phase == MeetingPhase.live;
@@ -381,8 +443,21 @@ class MeetingController extends ChangeNotifier {
     _polls
       ..clear()
       ..addAll(Poll.listFrom(ack['polls']));
-    whiteboard.replaceAll(Stroke.listFrom(ack['whiteboard']));
     _stageMode = (ack['stageMode'] ?? 'whiteboard').toString();
+    _className = (ack['className'] ?? '').toString();
+
+    // The board and everything behind it. A class is taught on an image or a
+    // document as often as on a blank page now, so replaying only the ink
+    // would show a student the annotations with the thing being annotated
+    // missing — the one case where a half-right board is worse than none.
+    _boards = BoardTab.listFrom(ack['boards']);
+    _activeBoardId = (ack['activeBoardId'] ?? '').toString();
+    _boardImage = BoardImage.fromMap(ack['boardImage']);
+    _boardDocument = BoardDocument.fromMap(ack['boardDocument']);
+    _boardView = BoardView.fromMap(ack['boardView']);
+    whiteboard.replaceAll(Stroke.listFrom(ack['whiteboard']));
+
+    _clip = SharedMedia.fromMap(ack['media']);
 
     if (ack['recording'] is Map) {
       _recording = RecordingState.fromSnapshot(
@@ -528,10 +603,108 @@ class MeetingController extends ChangeNotifier {
 
     sub('whiteboard-stroke', (data) {
       if (data is! Map) return;
-      whiteboard.add(Stroke.fromMap(Map<String, dynamic>.from(data)));
+      final map = Map<String, dynamic>.from(data);
+      // A stroke now names the board it belongs to. One arriving for a board
+      // the class is not looking at is not ours to draw — the teacher can ink
+      // a page nobody is on, and the strokes come back with it when they are.
+      final boardId = (map['boardId'] ?? '').toString();
+      if (boardId.isNotEmpty && _activeBoardId.isNotEmpty && boardId != _activeBoardId) {
+        return;
+      }
+      whiteboard.add(Stroke.fromMap(map));
     });
 
     sub('whiteboard-clear', (_) => whiteboard.clear());
+
+    // The teacher moved to another board, added one, or put something behind
+    // the ink. The switch carries the whole page with it, so this replaces
+    // rather than patches — which is also what makes a late join and a tab
+    // switch end in exactly the same picture.
+    sub('whiteboard-switched', (data) {
+      if (data is! Map) return;
+      final map = Map<String, dynamic>.from(data);
+      _boards = BoardTab.listFrom(map['boards']);
+      _activeBoardId = (map['activeBoardId'] ?? _activeBoardId).toString();
+      _boardImage = BoardImage.fromMap(map['image']);
+      _boardDocument = BoardDocument.fromMap(map['document']);
+      _boardView = BoardView.fromMap(map['view']);
+      whiteboard.replaceAll(Stroke.listFrom(map['strokes']));
+      notifyListeners();
+    });
+
+    sub('whiteboard-boards', (data) {
+      if (data is! Map) return;
+      final map = Map<String, dynamic>.from(data);
+      _boards = BoardTab.listFrom(map['boards']);
+      _activeBoardId = (map['activeBoardId'] ?? _activeBoardId).toString();
+      notifyListeners();
+    });
+
+    // Where the class is being asked to look. The teacher drives it and
+    // everybody follows: "look at the top left" means nothing when forty
+    // people are each scrolled somewhere different.
+    sub('whiteboard-view', (data) {
+      if (data is! Map) return;
+      _boardView = BoardView.fromMap(data['view']);
+      notifyListeners();
+    });
+
+    sub('whiteboard-page', (data) {
+      if (data is! Map) return;
+      final page = (data['page'] as num?)?.toInt();
+      final document = _boardDocument;
+      if (page == null || document == null) return;
+      _boardDocument = BoardDocument(
+        id: document.id,
+        url: document.url,
+        name: document.name,
+        page: page,
+      );
+      notifyListeners();
+    });
+
+    // --- a clip on the stage ---------------------------------------------
+    sub('shared-media', (data) {
+      _clip = SharedMedia.fromMap(data);
+      notifyListeners();
+    });
+
+    sub('shared-media-state', (data) {
+      _clip = SharedMedia.fromMap(data);
+      notifyListeners();
+    });
+
+    sub('shared-media-stopped', (_) {
+      _clip = null;
+      notifyListeners();
+    });
+
+    // --- praise, and the quiet thumbs -------------------------------------
+    sub('appreciation', (data) {
+      if (data is! Map) return;
+      _appreciation = Appreciation.fromMap(Map<String, dynamic>.from(data));
+      notifyListeners();
+    });
+
+    sub('reaction-changed', (data) {
+      if (data is! Map) return;
+      final peerId = (data['peerId'] ?? '').toString();
+      final reaction = data['reaction']?.toString();
+      final index = _participants.indexWhere((p) => p.id == peerId);
+      if (index == -1) return;
+      final next = [..._participants];
+      next[index] = reaction == null
+          ? next[index].copyWith(clearReaction: true)
+          : next[index].copyWith(reaction: reaction);
+      _participants = next;
+      notifyListeners();
+    });
+
+    sub('reactions-cleared', (_) {
+      _participants =
+          _participants.map((p) => p.copyWith(clearReaction: true)).toList();
+      notifyListeners();
+    });
 
     // --- written questions ---------------------------------------------------
     sub('question-asked', (data) {
@@ -740,6 +913,45 @@ class MeetingController extends ChangeNotifier {
     }
   }
 
+  /// Shows or takes back a thumb.
+  ///
+  /// Students only — the server refuses staff, on the grounds that a
+  /// coordinator's view of the pace is not what this is for. Pressing the
+  /// thumb already showing takes it back, which the server works out itself,
+  /// so the app sends what was wanted rather than trying to predict the result.
+  Future<String?> setReaction(String? reaction) async {
+    if (isAdmin) return 'Only students can react';
+    try {
+      await _socket.emitAck('set-reaction', {'reaction': reaction});
+      return null;
+    } catch (err) {
+      return err is SocketAckException ? err.message : 'Could not send that';
+    }
+  }
+
+  /// Clears every thumb in the room. Staff only.
+  Future<String?> clearReactions() => _staffAction('clear-reactions');
+
+  /// Praises the class. Staff only.
+  ///
+  /// Only the id travels. The server holds its own wording and refuses an id
+  /// it does not know, so a phone cannot put words in a teacher's mouth and
+  /// both clients always say the same thing.
+  Future<String?> appreciate(String id) =>
+      _staffAction('appreciate', {'id': id});
+
+  /// Mutes one person rather than the whole room.
+  Future<String?> muteParticipant(String peerId) =>
+      _staffAction('mute-participant', {'peerId': peerId});
+
+  /// Forgets the celebration once it has been shown, so reopening the room
+  /// does not replay praise from ten minutes ago.
+  void clearAppreciation() {
+    if (_appreciation == null) return;
+    _appreciation = null;
+    notifyListeners();
+  }
+
   Future<void> toggleHand() async {
     final next = !_handRaised;
     try {
@@ -918,6 +1130,14 @@ class MeetingController extends ChangeNotifier {
     _teacherAway = false;
     _recording = RecordingState.idle;
     _stageMode = 'whiteboard';
+    _className = '';
+    _boards = const [];
+    _activeBoardId = '';
+    _boardImage = null;
+    _boardDocument = null;
+    _boardView = BoardView.flat;
+    _clip = null;
+    _appreciation = null;
     whiteboard.clear();
     connection.reset();
     // Both belong to the session that has just ended. Left set, a rejoin would

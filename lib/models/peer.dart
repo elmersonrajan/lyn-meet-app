@@ -15,6 +15,14 @@ class Peer {
   /// When the hand went up, used to order the queue. Null when it is down.
   final int? handRaisedAt;
 
+  /// "up", "down", or null.
+  ///
+  /// A thumbs down is a quiet "I am lost", and that is the whole point of it:
+  /// a student who will not interrupt a class of forty to say so will press a
+  /// button. Staff cannot set one — the server refuses.
+  final String? reaction;
+  final int? reactionAt;
+
   const Peer({
     required this.id,
     required this.name,
@@ -24,7 +32,12 @@ class Peer {
     this.disconnected = false,
     this.handRaised = false,
     this.handRaisedAt,
+    this.reaction,
+    this.reactionAt,
   });
+
+  bool get isConfused => reaction == 'down';
+  bool get isFollowing => reaction == 'up';
 
   bool get isTeacher => role == 'teacher';
   bool get isCoordinator => role == 'coordinator';
@@ -43,6 +56,8 @@ class Peer {
       disconnected: map['disconnected'] == true,
       handRaised: map['handRaised'] == true,
       handRaisedAt: (map['handRaisedAt'] as num?)?.toInt(),
+      reaction: map['reaction']?.toString(),
+      reactionAt: (map['reactionAt'] as num?)?.toInt(),
     );
   }
 
@@ -59,6 +74,8 @@ class Peer {
     int? handRaisedAt,
     bool? audioMuted,
     bool? videoOff,
+    String? reaction,
+    bool clearReaction = false,
   }) {
     return Peer(
       id: id,
@@ -69,6 +86,8 @@ class Peer {
       disconnected: disconnected,
       handRaised: handRaised ?? this.handRaised,
       handRaisedAt: handRaised == false ? null : (handRaisedAt ?? this.handRaisedAt),
+      reaction: clearReaction ? null : (reaction ?? this.reaction),
+      reactionAt: clearReaction ? null : reactionAt,
     );
   }
 }

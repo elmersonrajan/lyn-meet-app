@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../state/meeting_controller.dart';
-import 'whiteboard_view.dart';
+import 'board_stage.dart';
+import 'clip_stage.dart';
 import 'zoomable_stage.dart';
 
 /// The main area: whatever the teacher has put in front of the class.
@@ -21,14 +22,14 @@ class StageView extends StatelessWidget {
     final mode = meeting.stageMode;
     final showScreen = mode == 'screen' && meeting.media.hasScreen;
 
-    if (mode == 'clip') {
+    // A clip takes the stage whether or not the mode says so: the teacher
+    // starting one is the instruction, and a student staring at a whiteboard
+    // while the class watches a video is the worst of both.
+    final clip = meeting.clip;
+    if (clip != null || mode == 'clip') {
       return Container(
         color: const Color(0xff0d1520),
-        child: const _UnsupportedStage(
-          icon: Icons.movie_outlined,
-          title: 'The teacher is playing a clip',
-          detail: 'Video clips play on the web app only',
-        ),
+        child: ClipStage(meeting: meeting),
       );
     }
 
@@ -39,57 +40,30 @@ class StageView extends StatelessWidget {
       // hundred pixels, and anything the teacher wrote small is lost at that
       // size. Zoom resets when the stage changes, since a magnified corner of
       // a whiteboard means nothing once a screen share replaces it.
-      child: ZoomableStage(
-        resetKey: showScreen ? 'screen' : 'board',
-        child: showScreen
-            ? RTCVideoView(
-                meeting.media.screenRenderer,
-                objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
-              )
-            : WhiteboardView(controller: meeting.whiteboard),
-      ),
-    );
-  }
-}
-
-class _UnsupportedStage extends StatelessWidget {
-  const _UnsupportedStage({
-    required this.icon,
-    required this.title,
-    required this.detail,
-  });
-
-  final IconData icon;
-  final String title;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 44, color: const Color(0xff6c7f99)),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ZoomableStage(
+              // Reset when the class is moved somewhere else, including to
+              // another board: a magnified corner of page one means nothing
+              // once the teacher has turned to page two.
+              resetKey: showScreen ? 'screen' : 'board:${meeting.activeBoardId}',
+              child: showScreen
+                  ? RTCVideoView(
+                      meeting.media.screenRenderer,
+                      objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+                    )
+                  : BoardStage(meeting: meeting),
             ),
-            const SizedBox(height: 6),
-            Text(
-              detail,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 13),
+          ),
+          if (!showScreen)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: BoardTabsStrip(meeting: meeting),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
