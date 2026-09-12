@@ -94,13 +94,19 @@ class AuthService {
 
   /// Where to send someone to sign in.
   ///
-  /// The platform bounces straight back if they already have a session there,
-  /// so an already-signed-in user sees a flicker rather than a login form. The
-  /// return address is the meeting link itself, which this app claims — so the
-  /// token comes back to the app rather than landing in a browser tab.
+  /// The platform does not bounce back. `?redirect=` is the parameter the
+  /// server's own /auth/login route attaches, but lynindia.in currently
+  /// ignores it and simply serves its home page — so nobody is returned here
+  /// by signing in alone.
   ///
-  /// `redirect` is the parameter the server's own login redirect uses, so the
-  /// platform is being asked in the form it already understands.
+  /// What does return them is opening their class **on the platform**: that is
+  /// where the token is minted, and it is sent to a class.lynindia.in address
+  /// this app claims. So sign-in is two moves, not one, and the screen says so
+  /// rather than leaving someone watching a spinner that will never finish.
+  ///
+  /// The parameter is still sent. It costs nothing, it matches what the web
+  /// client asks for, and the day the platform honours it this becomes one
+  /// move with no app release needed.
   Future<Uri> loginUri({String? meetingId}) async {
     final base = await resolveLoginUrl();
     final redirect = meetingId == null || meetingId.isEmpty

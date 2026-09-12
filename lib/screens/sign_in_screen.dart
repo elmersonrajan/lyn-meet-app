@@ -50,19 +50,24 @@ class SignInScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      blocked
-                          ? 'This account is not allowed into meetings. Ask your '
-                              'coordinator to check your account on LYN India.'
-                          : 'You sign in on LYN India. Your class and what you '
-                              'can do there come from your account.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xff8b9cb3),
-                        fontSize: 13.5,
-                        height: 1.45,
-                      ),
-                    ),
+                    if (blocked)
+                      const Text(
+                        'This account is not allowed into meetings. Ask your '
+                        'coordinator to check your account on LYN India.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xff8b9cb3),
+                          fontSize: 13.5,
+                          height: 1.45,
+                        ),
+                      )
+                    else
+                      // Spelt out as steps because it genuinely is two moves.
+                      // Signing in alone does not return anybody here — the
+                      // platform only hands this app a session when a class is
+                      // opened from its own pages, and a screen that implied
+                      // otherwise left people watching a spinner.
+                      const _Steps(),
                   ],
 
                   if (auth.error != null) ...[
@@ -100,10 +105,10 @@ class SignInScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       child: Text(
                         auth.phase == AuthPhase.awaitingBrowser
-                            ? 'Open sign-in again'
+                            ? 'Open LYN India again'
                             : blocked
                                 ? 'Sign in as someone else'
-                                : 'Sign in with LYN India',
+                                : 'Open LYN India to sign in',
                       ),
                     ),
                   ),
@@ -138,7 +143,8 @@ class _Waiting extends StatelessWidget {
         ),
         SizedBox(height: 16),
         Text(
-          'Waiting for sign-in to finish',
+          'Now open your class on LYN India',
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -147,12 +153,85 @@ class _Waiting extends StatelessWidget {
         ),
         SizedBox(height: 8),
         Text(
-          'Finish signing in on the page that opened. This screen continues on '
-          'its own when you are done.',
+          'Signing in is not quite enough — opening your class is what sends '
+          'you back here, already signed in. This screen carries on by itself '
+          'the moment it does.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Color(0xff8b9cb3), fontSize: 13, height: 1.45),
         ),
       ],
+    );
+  }
+}
+
+/// What actually has to happen, in order.
+class _Steps extends StatelessWidget {
+  const _Steps();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Step(n: '1', text: 'Sign in on LYN India'),
+        _Step(n: '2', text: 'Open your class from your timetable there'),
+        _Step(
+          n: '3',
+          text: 'It brings you straight back here, already signed in',
+          last: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _Step extends StatelessWidget {
+  const _Step({required this.n, required this.text, this.last = false});
+
+  final String n;
+  final String text;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: last ? 0 : 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xff1e3a63),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              n,
+              style: const TextStyle(
+                color: Color(0xff9dc2ff),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Color(0xffb9c6d6),
+                  fontSize: 13.5,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
