@@ -74,12 +74,14 @@ class SignInScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     _ErrorBox(
                       message: auth.error!,
-                      // A sign-in link is spent the first time it is used, so
-                      // a second attempt with the same one always fails. The
-                      // fix is a new link rather than a retry, and saying so
-                      // is the difference between one more tap and giving up.
+                      // Deliberately does not claim the link was used up. The
+                      // server says "expired or already used" for any token it
+                      // cannot find, and a token it still holds works again —
+                      // the row is only removed on a best-effort delete. So
+                      // this points at the move that produces a working link
+                      // rather than explaining a rule that may not apply.
                       hint: auth.failure == AuthFailure.needsSignIn
-                          ? 'Sign in again to get a fresh link — each one works once.'
+                          ? 'Open your class again on LYN India to come back with a fresh link.'
                           : null,
                     ),
                   ],
