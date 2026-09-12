@@ -11,25 +11,25 @@ void main() {
     // authenticate nobody, which is a failure with no error attached to it.
     test('reads the platform spelling', () {
       final uri = Uri.parse(
-        'https://meet.lynindia.in/?lynmeet=10214&TockenID=ya29.a0AfB_abcdef',
+        'https://class.lynindia.in/?lynmeet=10214&TockenID=ya29.a0AfB_abcdef',
       );
       expect(readHandoffToken(uri), 'ya29.a0AfB_abcdef');
     });
 
     test('also reads the corrected spelling, for the day they fix it', () {
-      final uri = Uri.parse('https://meet.lynindia.in/?TokenID=ya29.xyz');
+      final uri = Uri.parse('https://class.lynindia.in/?TokenID=ya29.xyz');
       expect(readHandoffToken(uri), 'ya29.xyz');
     });
 
     test('a class link carries no token', () {
-      final uri = Uri.parse('https://meet.lynindia.in/?lynmeet=DEVTEST');
+      final uri = Uri.parse('https://class.lynindia.in/?lynmeet=DEVTEST');
       expect(readHandoffToken(uri), '');
       expect(readMeetingIdFromUri(uri), 'DEVTEST');
     });
 
     test('one link can carry both, and both are read', () {
       final uri = Uri.parse(
-        'https://meet.lynindia.in/?lynmeet=10214&TockenID=ya29.token',
+        'https://class.lynindia.in/?lynmeet=10214&TockenID=ya29.token',
       );
       expect(readMeetingIdFromUri(uri), '10214');
       expect(readHandoffToken(uri), 'ya29.token');

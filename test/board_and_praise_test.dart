@@ -125,7 +125,7 @@ void main() {
           'id': 'p1',
           'name': 'A',
           'role': 'student',
-          if (reaction != null) 'reaction': reaction,
+          'reaction': ?reaction,
         });
 
     test('a thumb down is read as being lost', () {

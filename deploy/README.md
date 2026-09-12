@@ -3,7 +3,7 @@
 A teacher shares one link with the whole class:
 
 ```
-https://meet.lynindia.in/?lynmeet=DEVTEST
+https://class.lynindia.in/?lynmeet=DEVTEST
 ```
 
 The app already claims that domain — `AndroidManifest.xml` has an
@@ -12,14 +12,17 @@ domain. **That half does nothing on its own.** Both platforms verify the claim
 by fetching a file from the domain, and until the server serves those two
 files the link keeps opening a browser.
 
-## The problem right now
+## Where this stands
 
-`https://meet.lynindia.in/.well-known/assetlinks.json` currently returns the
-web app's `index.html` — the SPA catch-all answers it. Android's verifier
-requires real JSON with `Content-Type: application/json`, so it fails, silently,
-and every link goes to the browser.
+`https://class.lynindia.in/.well-known/assetlinks.json` is **live and correct**:
+`200`, `application/json`, naming `com.el.lynmeet`. Android verifies against it
+on install, so a student installing the app gets working links with nothing to
+do.
 
-Both files must be served **before** the SPA fallback route.
+It took getting there. The SPA's catch-all was answering that path with
+`index.html`, and Android's verifier wants real JSON — so it failed silently
+and every link opened a browser instead. Both files have to be served **before**
+the SPA fallback route, which is what the backend now does.
 
 | Path | File | Content-Type |
 | --- | --- | --- |
@@ -30,7 +33,7 @@ Rules that catch people out:
 
 - No redirects. Both verifiers follow none — the URL must answer `200` directly.
 - The Apple file has **no `.json` extension**. That is correct; do not add one.
-- Valid TLS, which `meet.lynindia.in` already has.
+- Valid TLS, which `class.lynindia.in` already has.
 
 ## Before deploying: fill in the two placeholders
 
@@ -67,14 +70,14 @@ never reaches the SPA fallback.
 ## Checking it worked
 
 ```bash
-curl -i https://meet.lynindia.in/.well-known/assetlinks.json
+curl -i https://class.lynindia.in/.well-known/assetlinks.json
 ```
 
 Look for `200` and `application/json`, not HTML. Then Google's own verifier,
 which reports exactly what Android will conclude:
 
 ```bash
-curl "https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://meet.lynindia.in&relation=delegate_permission/common.handle_all_urls"
+curl "https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://class.lynindia.in&relation=delegate_permission/common.handle_all_urls"
 ```
 
 On a device with the app installed:
