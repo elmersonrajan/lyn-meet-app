@@ -5,7 +5,7 @@
 	<!--
 	  Universal Links for the class link a teacher shares.
 
-	  iOS fetches https://meet.lynindia.in/.well-known/apple-app-site-association
+	  iOS fetches https://class.lynindia.in/.well-known/apple-app-site-association
 	  on install and checks that it names this app's Team ID and bundle
 	  identifier. Unlike Android there is no fallback to a chooser: if the
 	  association does not resolve, the link simply opens Safari.
@@ -17,7 +17,7 @@
 	-->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:meet.lynindia.in</string>
+		<string>applinks:class.lynindia.in</string>
 	</array>
 </dict>
 </plist>

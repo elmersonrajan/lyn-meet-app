@@ -50,7 +50,7 @@ flutter pub get
 flutter run
 ```
 
-That talks to `https://meet.lynindia.in`, which fronts the backend and proxies
+That talks to `https://class.lynindia.in`, which fronts the backend and proxies
 `/socket.io` through to it over real TLS. Point it somewhere else with
 `--dart-define=LYNMEET_SERVER=http://192.168.1.55:5000` for a laptop on the
 LAN, or `http://10.0.2.2:5000` from an Android emulator — cleartext is
@@ -70,7 +70,7 @@ the connection is websocket-only so it never falls back to polling.
 A teacher shares one link with the whole class:
 
 ```
-https://meet.lynindia.in/?lynmeet=DEVTEST
+https://class.lynindia.in/?lynmeet=DEVTEST
 ```
 
 Tapping it opens the app straight into that meeting. The app claims the domain

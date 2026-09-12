@@ -25,12 +25,12 @@ class Env {
   ///   --dart-define=LYNMEET_SERVER=http://192.168.1.55:5000
   static const String serverUrl = String.fromEnvironment(
     'LYNMEET_SERVER',
-    defaultValue: 'https://meet.lynindia.in',
+    defaultValue: 'https://class.lynindia.in',
   );
 
   /// The host shared links use. Kept beside the server URL because the two are
   /// the same machine, and App Links only verify when they agree.
-  static const String linkHost = 'meet.lynindia.in';
+  static const String linkHost = 'class.lynindia.in';
 
   /// Socket.IO mount point — matches the backend's default.
   static const String socketPath = '/socket.io';

@@ -8,7 +8,7 @@ void main() {
   group('the link a teacher actually shares', () {
     // The exact form that goes out to a class. If this case ever breaks, every
     // student who taps the link lands on an empty join screen.
-    const shared = 'https://meet.lynindia.in/?lynmeet=DEVTEST';
+    const shared = 'https://class.lynindia.in/?lynmeet=DEVTEST';
 
     test('opens the right meeting', () {
       expect(readMeetingIdFromUri(Uri.parse(shared)), 'DEVTEST');
@@ -16,7 +16,7 @@ void main() {
 
     test('works over http as well, since the manifest claims both', () {
       expect(
-        readMeetingIdFromUri(Uri.parse('http://meet.lynindia.in/?lynmeet=DEVTEST')),
+        readMeetingIdFromUri(Uri.parse('http://class.lynindia.in/?lynmeet=DEVTEST')),
         'DEVTEST',
       );
     });
@@ -44,7 +44,7 @@ void main() {
       // second, empty one.
       expect(
         normalizeMeetingId(
-          readMeetingIdFromUri(Uri.parse('https://meet.lynindia.in/?lynmeet=devtest')),
+          readMeetingIdFromUri(Uri.parse('https://class.lynindia.in/?lynmeet=devtest')),
         ),
         'DEVTEST',
       );
