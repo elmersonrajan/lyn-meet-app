@@ -117,7 +117,8 @@ class SignInScreen extends StatelessWidget {
 
                   const SizedBox(height: 16),
                   const Text(
-                    'Opens your browser. Nothing you type there is seen by this app.',
+                    'Opens inside the app. Your password goes to LYN India, '
+                    'never through here.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Color(0xff6b7a8d), fontSize: 11.5),
                   ),
