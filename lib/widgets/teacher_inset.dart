@@ -77,7 +77,18 @@ class _TeacherInsetState extends State<TeacherInset> {
               BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4)),
             ],
           ),
-          clipBehavior: Clip.antiAlias,
+          // hardEdge, not antiAlias, and the difference is not cosmetic.
+          //
+          // RTCVideoView renders through a platform texture. Anti-aliasing a
+          // clip makes Flutter allocate a saveLayer to do it, and compositing
+          // a texture into a saveLayer is a known way to get a black rectangle
+          // on Android — Samsung devices especially. hardEdge clips to the
+          // same rounded rect without the layer, so the texture composites
+          // straight to the screen.
+          //
+          // The corners are a fraction less smooth at the pixel level. That is
+          // not a trade worth arguing about against video that does not appear.
+          clipBehavior: Clip.hardEdge,
           child: Stack(
             fit: StackFit.expand,
             children: [

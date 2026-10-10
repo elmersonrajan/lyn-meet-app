@@ -148,6 +148,16 @@ class MediaController extends ChangeNotifier {
   /// So the precise form is used only when it earns its risk — a peer with a
   /// camera and a screen share at once.
   Future<void> _point(RTCVideoRenderer renderer, RemoteTrack track) async {
+    // Logged because a black tile has two completely different causes and they
+    // are indistinguishable on screen: either no track ever arrived, or one
+    // arrived and the texture is not being composited. This line settles which
+    // without another round of guessing.
+    debugPrint(
+      '[Media] ${track.slot.name} <- track ${track.track.id} '
+      'of stream ${track.stream.id} '
+      '(byTrackId: ${track.selectByTrackId}, enabled: ${track.track.enabled})',
+    );
+
     if (track.selectByTrackId) {
       await renderer.setSrcObject(
         stream: track.stream,
