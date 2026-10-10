@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -78,22 +80,36 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  /// Opens the platform sign-in in a browser.
+  /// Opens the platform sign-in, inside the app where the platform allows it.
   ///
-  /// Deliberately the real browser rather than a webview. The platform session
-  /// lives there, so someone already signed in to lynindia.in is bounced
-  /// straight back without seeing a login form at all — and a webview would
-  /// have its own empty cookie jar and ask them to type a password that the
-  /// app has no business seeing.
+  /// A Custom Tab on Android, a Safari view on iOS: it sits on top of the app
+  /// rather than switching to another one, it is themed, and it closes itself.
+  /// Crucially it shares the browser's own cookies, so somebody already signed
+  /// in to lynindia.in goes straight through without seeing a login form.
   ///
-  /// The browser comes back to the meeting link, which this app claims, so the
-  /// token arrives as a deep link rather than being read off a page.
+  /// It is not a WebView, and that is not a preference. The platform signs in
+  /// with Google, and Google refuses OAuth inside an embedded WebView
+  /// (`disallowed_useragent`) precisely because the host app could read what is
+  /// typed — so a login page rendered inside this app would be turned away by
+  /// Google, not by us. A Custom Tab is a real browser and is allowed.
+  ///
+  /// Falls back to the full browser if no Custom Tab provider is installed,
+  /// which is unusual but happens on stripped-down devices.
   Future<bool> startSignIn({String? meetingId}) async {
     _error = null;
     _failure = null;
     try {
       final uri = await _service.loginUri(meetingId: meetingId);
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+      var launched = false;
+      try {
+        launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      } catch (err) {
+        debugPrint('[Auth] no in-app browser, using the full one: $err');
+      }
+      launched = launched ||
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+
       if (!launched) {
         _error = 'Could not open the browser to sign in';
         _set(AuthPhase.signedOut);
@@ -123,6 +139,9 @@ class AuthController extends ChangeNotifier {
 
     try {
       _user = await _service.redeemToken(token);
+      // Take the sign-in browser away now that it has done its job, rather
+      // than leaving the class behind a tab the student has to dismiss.
+      unawaited(_closeBrowser());
       _set(AuthPhase.signedIn);
       return true;
     } on AuthException catch (err) {
@@ -150,6 +169,15 @@ class AuthController extends ChangeNotifier {
     _error = null;
     _failure = null;
     _set(AuthPhase.signedOut);
+  }
+
+  /// Closes the in-app browser if one is open. Harmless when none is.
+  Future<void> _closeBrowser() async {
+    try {
+      await closeInAppWebView();
+    } catch (_) {
+      // Nothing was open, or the platform does not support closing it.
+    }
   }
 
   void _set(AuthPhase phase) {

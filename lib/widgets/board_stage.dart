@@ -133,7 +133,7 @@ class _BoardFailed extends StatelessWidget {
                   ? 'Could not load what the teacher is showing'
                   : 'Could not load "$name"',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xff7a8ba3), fontSize: 13),
+              style: const TextStyle(color: Color(0xff9aa0a6), fontSize: 13),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -177,7 +177,7 @@ class BoardTabsStrip extends StatelessWidget {
             margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 3),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             decoration: BoxDecoration(
-              color: live ? const Color(0xff2f6bd8) : const Color(0xff1b2430),
+              color: live ? const Color(0xff1a73e8) : const Color(0xff3c4043),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -187,14 +187,14 @@ class BoardTabsStrip extends StatelessWidget {
                   Icon(
                     Icons.image_outlined,
                     size: 11,
-                    color: live ? Colors.white : const Color(0xff8b9cb3),
+                    color: live ? Colors.white : const Color(0xff9aa0a6),
                   ),
                   const SizedBox(width: 4),
                 ],
                 Text(
                   board.name,
                   style: TextStyle(
-                    color: live ? Colors.white : const Color(0xff8b9cb3),
+                    color: live ? Colors.white : const Color(0xff9aa0a6),
                     fontSize: 11,
                     fontWeight: live ? FontWeight.w600 : FontWeight.w400,
                   ),

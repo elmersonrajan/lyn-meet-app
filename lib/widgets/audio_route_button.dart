@@ -22,7 +22,7 @@ class AudioRouteButton extends StatelessWidget {
   Future<void> _pick(BuildContext context) async {
     final chosen = await showModalBottomSheet<AudioRoute>(
       context: context,
-      backgroundColor: const Color(0xff141d29),
+      backgroundColor: const Color(0xff2d2e31),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -49,8 +49,8 @@ class AudioRouteButton extends StatelessWidget {
                 leading: Icon(
                   _iconFor(route),
                   color: route == controller.route
-                      ? const Color(0xff5b9bff)
-                      : const Color(0xffb9c6d6),
+                      ? const Color(0xff8ab4f8)
+                      : const Color(0xffe8eaed),
                 ),
                 title: Text(
                   route.label,
@@ -63,10 +63,10 @@ class AudioRouteButton extends StatelessWidget {
                 ),
                 subtitle: Text(
                   route.detail,
-                  style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 12),
+                  style: const TextStyle(color: Color(0xff9aa0a6), fontSize: 12),
                 ),
                 trailing: route == controller.route
-                    ? const Icon(Icons.check, color: Color(0xff5b9bff), size: 20)
+                    ? const Icon(Icons.check, color: Color(0xff8ab4f8), size: 20)
                     : null,
                 onTap: () => Navigator.of(context).pop(route),
               ),
@@ -91,7 +91,7 @@ class AudioRouteButton extends StatelessWidget {
             _iconFor(controller.route),
             color: controller.route == AudioRoute.speaker
                 ? Colors.white
-                : const Color(0xff5b9bff),
+                : const Color(0xff8ab4f8),
           ),
         );
       },

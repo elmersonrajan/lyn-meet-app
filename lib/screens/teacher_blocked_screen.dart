@@ -38,7 +38,7 @@ class TeacherBlockedScreen extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.school_outlined,
-                        size: 34, color: Color(0xff9dc2ff)),
+                        size: 34, color: Color(0xff8ab4f8)),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -58,7 +58,7 @@ class TeacherBlockedScreen extends StatelessWidget {
                     'and recording are on the web app too.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(0xff8b9cb3),
+                      color: Color(0xff9aa0a6),
                       fontSize: 14,
                       height: 1.5,
                     ),

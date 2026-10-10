@@ -147,7 +147,7 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
                     : '${meeting.className} · ${meeting.participants.length}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11.5, color: Color(0xff8b9cb3)),
+                style: const TextStyle(fontSize: 11.5, color: Color(0xff9aa0a6)),
               ),
             ],
           ),
@@ -161,7 +161,7 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
               icon: Badge(
                 isLabelVisible: meeting.unansweredQuestions > 0,
                 label: Text('${meeting.unansweredQuestions}'),
-                backgroundColor: const Color(0xffffc44d),
+                backgroundColor: const Color(0xfffdd663),
                 textColor: const Color(0xff2a1c00),
                 child: const Icon(Icons.help_outline),
               ),
@@ -252,8 +252,8 @@ class _RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
   Widget _panel(MeetingController meeting, Poll? poll, TabController tabs) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xff0b1017),
-        border: Border(top: BorderSide(color: Color(0xff1e2937))),
+        color: Color(0xff202124),
+        border: Border(top: BorderSide(color: Color(0xff3c4043))),
       ),
       child: Column(
         children: [
@@ -340,7 +340,7 @@ class _Dot extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
-        color: const Color(0xff2f6bd8),
+        color: const Color(0xff1a73e8),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
@@ -366,17 +366,17 @@ class _NoPoll extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.quiz_outlined, size: 36, color: Color(0xff5c6b80)),
+            Icon(Icons.quiz_outlined, size: 36, color: Color(0xff80868b)),
             SizedBox(height: 12),
             Text(
               'No question right now',
-              style: TextStyle(color: Color(0xff8b9cb3), fontSize: 14),
+              style: TextStyle(color: Color(0xff9aa0a6), fontSize: 14),
             ),
             SizedBox(height: 4),
             Text(
               'When your teacher asks one it appears here, and over the board.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xff6b7a8d), fontSize: 12),
+              style: TextStyle(color: Color(0xff80868b), fontSize: 12),
             ),
           ],
         ),

@@ -124,7 +124,7 @@ class StatusBanner extends StatelessWidget {
         text: media.micNotice ??
             'Mic disabled — no teacher or coordinator in the meeting',
         color: const Color(0xff20293a),
-        textColor: const Color(0xffb9c6d6),
+        textColor: const Color(0xffe8eaed),
       );
     }
 
@@ -133,7 +133,7 @@ class StatusBanner extends StatelessWidget {
         icon: Icons.info_outline,
         text: media.micNotice!,
         color: const Color(0xff20293a),
-        textColor: const Color(0xffb9c6d6),
+        textColor: const Color(0xffe8eaed),
       );
     }
 
@@ -142,7 +142,7 @@ class StatusBanner extends StatelessWidget {
         icon: Icons.hourglass_bottom,
         text: 'The recording of this class is still being prepared.',
         color: Color(0xff20293a),
-        textColor: Color(0xffb9c6d6),
+        textColor: Color(0xffe8eaed),
       );
     }
 

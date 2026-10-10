@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../state/meeting_controller.dart';
+import '../theme.dart';
 
 /// How much of the stage the teacher's tile takes.
 enum InsetSize { small, large, hidden }
@@ -69,13 +70,25 @@ class _TeacherInsetState extends State<TeacherInset> {
           height: insetWidth * 9 / 16,
           decoration: BoxDecoration(
             color: Colors.black,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0x33ffffff)),
+            // Meet's tile radius. Large corners are the cue that reads as
+            // "a video tile" rather than "a box with video in it".
+            borderRadius: BorderRadius.circular(14),
             boxShadow: const [
               BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4)),
             ],
           ),
-          clipBehavior: Clip.antiAlias,
+          // hardEdge, not antiAlias, and the difference is not cosmetic.
+          //
+          // RTCVideoView renders through a platform texture. Anti-aliasing a
+          // clip makes Flutter allocate a saveLayer to do it, and compositing
+          // a texture into a saveLayer is a known way to get a black rectangle
+          // on Android — Samsung devices especially. hardEdge clips to the
+          // same rounded rect without the layer, so the texture composites
+          // straight to the screen.
+          //
+          // The corners are a fraction less smooth at the pixel level. That is
+          // not a trade worth arguing about against video that does not appear.
+          clipBehavior: Clip.hardEdge,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -107,16 +120,66 @@ class _TeacherInsetState extends State<TeacherInset> {
               // A quiet hint that the tile responds to a tap, which is not
               // otherwise discoverable.
               Positioned(
-                right: 4,
-                top: 4,
+                right: 6,
+                top: 6,
                 child: Icon(
                   _size == InsetSize.large
                       ? Icons.close_fullscreen
                       : Icons.open_in_full,
                   size: 13,
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: Colors.white.withValues(alpha: 0.7),
                 ),
               ),
+
+              // The name chip in the corner, as Meet labels every tile. On a
+              // stage holding one face it is less about telling people apart
+              // than about confirming the right person is on screen.
+              if (meeting.cameraPeerName != null)
+                Positioned(
+                  left: 6,
+                  bottom: 6,
+                  right: 6,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x99000000),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (meeting.participants.any((p) =>
+                                  p.id == meeting.media.cameraPeerId &&
+                                  p.audioMuted)) ...[
+                                const Icon(Icons.mic_off,
+                                    size: 11, color: LynColors.dangerSoft),
+                                const SizedBox(width: 4),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  meeting.cameraPeerName!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -152,7 +215,7 @@ class _CameraOff extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 11),
+              style: const TextStyle(color: Color(0xff9aa0a6), fontSize: 11),
             ),
           ),
         ],

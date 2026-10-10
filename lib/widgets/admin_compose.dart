@@ -16,7 +16,7 @@ class AskQuestionSheet extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xff141d29),
+      backgroundColor: const Color(0xff2d2e31),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -80,7 +80,7 @@ class _AskQuestionSheetState extends State<AskQuestionSheet> {
           const SizedBox(height: 4),
           const Text(
             'Everyone sees the question. Only you see the answers.',
-            style: TextStyle(color: Color(0xff8b9cb3), fontSize: 12.5),
+            style: TextStyle(color: Color(0xff9aa0a6), fontSize: 12.5),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -99,7 +99,7 @@ class _AskQuestionSheetState extends State<AskQuestionSheet> {
             const SizedBox(height: 8),
             Text(
               _error!,
-              style: const TextStyle(color: Color(0xffff8b8b), fontSize: 12),
+              style: const TextStyle(color: Color(0xfff28b82), fontSize: 12),
             ),
           ],
           const SizedBox(height: 12),
@@ -137,7 +137,7 @@ class CreatePollSheet extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xff141d29),
+      backgroundColor: const Color(0xff2d2e31),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -216,7 +216,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
             const SizedBox(height: 4),
             const Text(
               'Tick every correct answer. Students are not told how many.',
-              style: TextStyle(color: Color(0xff8b9cb3), fontSize: 12.5),
+              style: TextStyle(color: Color(0xff9aa0a6), fontSize: 12.5),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -268,7 +268,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
               children: [
                 const Text(
                   'Time to answer',
-                  style: TextStyle(color: Color(0xff8b9cb3), fontSize: 13),
+                  style: TextStyle(color: Color(0xff9aa0a6), fontSize: 13),
                 ),
                 const Spacer(),
                 for (final minutes in const [1, 2, 5])
@@ -288,7 +288,7 @@ class _CreatePollSheetState extends State<CreatePollSheet> {
               const SizedBox(height: 10),
               Text(
                 _error!,
-                style: const TextStyle(color: Color(0xffff8b8b), fontSize: 12),
+                style: const TextStyle(color: Color(0xfff28b82), fontSize: 12),
               ),
             ],
             const SizedBox(height: 14),

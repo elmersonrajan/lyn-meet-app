@@ -45,7 +45,7 @@ class WhiteboardView extends StatelessWidget {
         }
 
         return ColoredBox(
-          color: const Color(0xff0d1520),
+          color: const Color(0xff202124),
           child: Center(
             child: AspectRatio(
               aspectRatio: controller.boardAspect,
@@ -82,7 +82,7 @@ class _EmptyBoard extends StatelessWidget {
           SizedBox(height: 12),
           Text(
             'The board is empty',
-            style: TextStyle(color: Color(0xff7a8ba3), fontSize: 15),
+            style: TextStyle(color: Color(0xff9aa0a6), fontSize: 15),
           ),
         ],
       ),

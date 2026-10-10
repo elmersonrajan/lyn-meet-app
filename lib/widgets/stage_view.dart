@@ -28,13 +28,13 @@ class StageView extends StatelessWidget {
     final clip = meeting.clip;
     if (clip != null || mode == 'clip') {
       return Container(
-        color: const Color(0xff0d1520),
+        color: const Color(0xff202124),
         child: ClipStage(meeting: meeting),
       );
     }
 
     return Container(
-      color: const Color(0xff0d1520),
+      color: const Color(0xff202124),
       // Both the board and a shared screen are readable only if a student can
       // magnify them: each is a wide desktop surface scaled down to a few
       // hundred pixels, and anything the teacher wrote small is lost at that
