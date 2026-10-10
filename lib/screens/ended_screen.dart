@@ -51,7 +51,7 @@ class EndedScreen extends StatelessWidget {
                     detail.message,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Color(0xff8b9cb3),
+                      color: Color(0xff9aa0a6),
                       fontSize: 14,
                       height: 1.4,
                     ),
@@ -88,7 +88,7 @@ class EndedScreen extends StatelessWidget {
         return _EndDetail(
           icon: Icons.person_remove_outlined,
           tint: const Color(0xff3a1a1e),
-          iconColor: const Color(0xffff8b8b),
+          iconColor: const Color(0xfff28b82),
           title: 'You were removed from the class',
           message: meeting.error ?? 'Your teacher removed you from this meeting.',
         );
@@ -96,7 +96,7 @@ class EndedScreen extends StatelessWidget {
         return _EndDetail(
           icon: Icons.check_circle_outline,
           tint: const Color(0xff16301f),
-          iconColor: const Color(0xff35d07f),
+          iconColor: const Color(0xff81c995),
           title: 'Class finished',
           message: meeting.error ?? 'Your teacher ended the session.',
         );
@@ -114,7 +114,7 @@ class EndedScreen extends StatelessWidget {
         return _EndDetail(
           icon: Icons.error_outline,
           tint: const Color(0xff3a1a1e),
-          iconColor: const Color(0xffff8b8b),
+          iconColor: const Color(0xfff28b82),
           title: 'Something went wrong',
           message: meeting.error ?? 'The class ended unexpectedly.',
         );
@@ -122,7 +122,7 @@ class EndedScreen extends StatelessWidget {
         return const _EndDetail(
           icon: Icons.waving_hand_outlined,
           tint: Color(0xff1b2b45),
-          iconColor: Color(0xff9dc2ff),
+          iconColor: Color(0xff8ab4f8),
           title: 'You left the class',
           message: 'You can rejoin any time with the same meeting ID.',
         );

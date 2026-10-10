@@ -12,11 +12,11 @@ class ConnectionIndicator extends StatelessWidget {
   final ConnectionStatus status;
 
   Color _colourFor(ConnectionQuality quality) => switch (quality) {
-        ConnectionQuality.good => const Color(0xff35d07f),
-        ConnectionQuality.connecting => const Color(0xff9dc2ff),
-        ConnectionQuality.weak => const Color(0xffffc44d),
-        ConnectionQuality.failed => const Color(0xffff6b6b),
-        ConnectionQuality.offline => const Color(0xffff6b6b),
+        ConnectionQuality.good => const Color(0xff81c995),
+        ConnectionQuality.connecting => const Color(0xff8ab4f8),
+        ConnectionQuality.weak => const Color(0xfffdd663),
+        ConnectionQuality.failed => const Color(0xffea4335),
+        ConnectionQuality.offline => const Color(0xffea4335),
       };
 
   @override
@@ -47,7 +47,7 @@ class ConnectionIndicator extends StatelessWidget {
                         // An unfilled bar stays visible rather than vanishing,
                         // so the meter reads as "one of three" instead of
                         // looking like a rendering fault.
-                        color: i < filled ? colour : const Color(0xff33404f),
+                        color: i < filled ? colour : const Color(0xff3c4043),
                         borderRadius: BorderRadius.circular(1.5),
                       ),
                     ),

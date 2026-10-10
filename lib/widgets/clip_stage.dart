@@ -57,7 +57,7 @@ class _ClipStageState extends State<ClipStage> {
       return const Center(
         child: Text(
           'The clip has finished',
-          style: TextStyle(color: Color(0xff8b9cb3), fontSize: 14),
+          style: TextStyle(color: Color(0xff9aa0a6), fontSize: 14),
         ),
       );
     }
@@ -78,7 +78,7 @@ class _ClipStageState extends State<ClipStage> {
               child: Icon(
                 clip.paused ? Icons.pause : Icons.play_arrow,
                 size: 34,
-                color: const Color(0xffff6b6b),
+                color: const Color(0xffea4335),
               ),
             ),
             const SizedBox(height: 18),
@@ -98,7 +98,7 @@ class _ClipStageState extends State<ClipStage> {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xff9dc2ff),
+                  color: Color(0xff8ab4f8),
                   fontSize: 14,
                   height: 1.4,
                 ),
@@ -108,14 +108,14 @@ class _ClipStageState extends State<ClipStage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xff1b2430),
+                color: const Color(0xff3c4043),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 clip.paused
                     ? 'Paused at ${_clock(clip.positionNow())}'
                     : 'At ${_clock(clip.positionNow())}',
-                style: const TextStyle(color: Color(0xffb9c6d6), fontSize: 12.5),
+                style: const TextStyle(color: Color(0xffe8eaed), fontSize: 12.5),
               ),
             ),
             const SizedBox(height: 22),
@@ -135,7 +135,7 @@ class _ClipStageState extends State<ClipStage> {
               'Opens the video at the same moment your class is at. '
               'Come back here when it finishes — the lesson carries on.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xff6b7a8d), fontSize: 11.5, height: 1.4),
+              style: TextStyle(color: Color(0xff80868b), fontSize: 11.5, height: 1.4),
             ),
           ],
         ),

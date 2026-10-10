@@ -25,18 +25,18 @@ class QuestionsPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.help_outline, size: 36, color: Color(0xff5c6b80)),
+              Icon(Icons.help_outline, size: 36, color: Color(0xff80868b)),
               SizedBox(height: 12),
               Text(
                 'No questions yet',
-                style: TextStyle(color: Color(0xff8b9cb3), fontSize: 14),
+                style: TextStyle(color: Color(0xff9aa0a6), fontSize: 14),
               ),
               SizedBox(height: 4),
               Text(
                 'When your teacher asks one, you can type your answer here.\n'
                 'Only your teacher sees what you write.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xff6b7a8d), fontSize: 12),
+                style: TextStyle(color: Color(0xff80868b), fontSize: 12),
               ),
             ],
           ),
@@ -116,15 +116,15 @@ class _QuestionCardState extends State<QuestionCard> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xff17202e),
+        color: const Color(0xff2d2e31),
         borderRadius: BorderRadius.circular(12),
         border: Border(
           left: BorderSide(
             color: question.closed
                 ? const Color(0xff3d4a5c)
                 : answered
-                    ? const Color(0xff35d07f)
-                    : const Color(0xffffc44d),
+                    ? const Color(0xff81c995)
+                    : const Color(0xfffdd663),
             width: 3,
           ),
         ),
@@ -139,7 +139,7 @@ class _QuestionCardState extends State<QuestionCard> {
                   question.from,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xff9dc2ff),
+                    color: Color(0xff8ab4f8),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -149,12 +149,12 @@ class _QuestionCardState extends State<QuestionCard> {
               if (question.closed)
                 const Text(
                   'Closed',
-                  style: TextStyle(color: Color(0xff8b9cb3), fontSize: 11),
+                  style: TextStyle(color: Color(0xff9aa0a6), fontSize: 11),
                 )
               else
                 Text(
                   '${question.answerCount} answered',
-                  style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 11),
+                  style: const TextStyle(color: Color(0xff9aa0a6), fontSize: 11),
                 ),
             ],
           ),
@@ -162,7 +162,7 @@ class _QuestionCardState extends State<QuestionCard> {
           SelectableText(
             question.text,
             style: const TextStyle(
-              color: Color(0xffe6edf6),
+              color: Color(0xffe8eaed),
               fontSize: 15,
               height: 1.35,
             ),
@@ -224,12 +224,12 @@ class _QuestionCardState extends State<QuestionCard> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.check_circle, size: 14, color: Color(0xff35d07f)),
+                      Icon(Icons.check_circle, size: 14, color: Color(0xff81c995)),
                       SizedBox(width: 6),
                       Text(
                         'Your answer',
                         style: TextStyle(
-                          color: Color(0xff35d07f),
+                          color: Color(0xff81c995),
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -239,7 +239,7 @@ class _QuestionCardState extends State<QuestionCard> {
                   const SizedBox(height: 6),
                   SelectableText(
                     question.myAnswer!.text,
-                    style: const TextStyle(color: Color(0xffe6edf6), fontSize: 14),
+                    style: const TextStyle(color: Color(0xffe8eaed), fontSize: 14),
                   ),
                 ],
               ),
@@ -257,14 +257,14 @@ class _QuestionCardState extends State<QuestionCard> {
           ] else
             const Text(
               'You did not answer this one.',
-              style: TextStyle(color: Color(0xff8b9cb3), fontSize: 12.5),
+              style: TextStyle(color: Color(0xff9aa0a6), fontSize: 12.5),
             ),
 
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(
               _error!,
-              style: const TextStyle(color: Color(0xffff8b8b), fontSize: 12),
+              style: const TextStyle(color: Color(0xfff28b82), fontSize: 12),
             ),
           ],
         ],
@@ -300,7 +300,7 @@ class _AnswerRoll extends StatelessWidget {
                   ? 'No answers yet'
                   : '${answers.length} answer${answers.length == 1 ? '' : 's'}',
               style: const TextStyle(
-                color: Color(0xff9dc2ff),
+                color: Color(0xff8ab4f8),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -326,7 +326,7 @@ class _AnswerRoll extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 6),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xff121a26),
+              color: const Color(0xff202124),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
@@ -335,7 +335,7 @@ class _AnswerRoll extends StatelessWidget {
                 Text(
                   answer.name,
                   style: const TextStyle(
-                    color: Color(0xff9dc2ff),
+                    color: Color(0xff8ab4f8),
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -343,7 +343,7 @@ class _AnswerRoll extends StatelessWidget {
                 const SizedBox(height: 3),
                 SelectableText(
                   answer.text,
-                  style: const TextStyle(color: Color(0xffe6edf6), fontSize: 13.5),
+                  style: const TextStyle(color: Color(0xffe8eaed), fontSize: 13.5),
                 ),
               ],
             ),

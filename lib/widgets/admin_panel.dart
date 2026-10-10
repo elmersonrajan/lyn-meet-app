@@ -49,7 +49,7 @@ class AdminPanel extends StatelessWidget {
           child: Text(
             'Everyone sees it, with confetti. Good for the moment somebody '
             'gets a hard question right.',
-            style: TextStyle(color: Color(0xff7a8ba3), fontSize: 11.5, height: 1.4),
+            style: TextStyle(color: Color(0xff9aa0a6), fontSize: 11.5, height: 1.4),
           ),
         ),
         Wrap(
@@ -128,7 +128,7 @@ class AdminPanel extends StatelessWidget {
           child: Text(
             'Sharing a screen itself is done from the web app. This chooses '
             'which of the two the class sees.',
-            style: TextStyle(color: Color(0xff6b7a8d), fontSize: 11.5, height: 1.4),
+            style: TextStyle(color: Color(0xff80868b), fontSize: 11.5, height: 1.4),
           ),
         ),
 
@@ -155,7 +155,7 @@ class AdminPanel extends StatelessWidget {
                   ),
                   FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xffc0392b),
+                      backgroundColor: const Color(0xffea4335),
                     ),
                     onPressed: () => Navigator.of(context).pop(true),
                     child: const Text('End the class'),
@@ -184,7 +184,7 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         text.toUpperCase(),
         style: const TextStyle(
-          color: Color(0xff6b7a8d),
+          color: Color(0xff80868b),
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
@@ -214,15 +214,15 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colour = !enabled
-        ? const Color(0xff5c6b80)
+        ? const Color(0xff80868b)
         : danger
-            ? const Color(0xffff8b8b)
+            ? const Color(0xfff28b82)
             : Colors.white;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: const Color(0xff17202e),
+        color: const Color(0xff2d2e31),
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -249,7 +249,7 @@ class _ActionTile extends StatelessWidget {
                       Text(
                         detail,
                         style: const TextStyle(
-                          color: Color(0xff7a8ba3),
+                          color: Color(0xff9aa0a6),
                           fontSize: 11.5,
                           height: 1.3,
                         ),
@@ -282,7 +282,7 @@ class _StageChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? const Color(0xff1e3a63) : const Color(0xff17202e),
+      color: selected ? const Color(0xff3c4043) : const Color(0xff2d2e31),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -292,7 +292,7 @@ class _StageChoice extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? const Color(0xff2f6bd8) : const Color(0xff2a3547),
+              color: selected ? const Color(0xff1a73e8) : const Color(0xff5f6368),
               width: selected ? 1.6 : 1,
             ),
           ),
@@ -301,13 +301,13 @@ class _StageChoice extends StatelessWidget {
               Icon(
                 icon,
                 size: 20,
-                color: selected ? const Color(0xff9dc2ff) : const Color(0xff8b9cb3),
+                color: selected ? const Color(0xff8ab4f8) : const Color(0xff9aa0a6),
               ),
               const SizedBox(height: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: selected ? Colors.white : const Color(0xff8b9cb3),
+                  color: selected ? Colors.white : const Color(0xff9aa0a6),
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
@@ -331,7 +331,7 @@ class _AwardButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xff17202e),
+      color: const Color(0xff2d2e31),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -340,7 +340,7 @@ class _AwardButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xff2a3547)),
+            border: Border.all(color: const Color(0xff5f6368)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -382,12 +382,12 @@ class _ReactionTally extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xff17202e),
+        color: const Color(0xff2d2e31),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          const Icon(Icons.thumb_up, size: 17, color: Color(0xff35d07f)),
+          const Icon(Icons.thumb_up, size: 17, color: Color(0xff81c995)),
           const SizedBox(width: 6),
           Text(
             '$up',
@@ -401,13 +401,13 @@ class _ReactionTally extends StatelessWidget {
           Icon(
             Icons.thumb_down,
             size: 17,
-            color: down > 0 ? const Color(0xffff8b8b) : const Color(0xff6b7a8d),
+            color: down > 0 ? const Color(0xfff28b82) : const Color(0xff80868b),
           ),
           const SizedBox(width: 6),
           Text(
             '$down',
             style: TextStyle(
-              color: down > 0 ? const Color(0xffff8b8b) : Colors.white,
+              color: down > 0 ? const Color(0xfff28b82) : Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),

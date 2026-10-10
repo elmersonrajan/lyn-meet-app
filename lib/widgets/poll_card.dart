@@ -82,9 +82,9 @@ class _PollCardState extends State<PollCard> {
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xff17202e),
+        color: const Color(0xff2d2e31),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xff2a3547)),
+        border: Border.all(color: const Color(0xff5f6368)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,7 +106,7 @@ class _PollCardState extends State<PollCard> {
               // The number of correct options is never revealed while the poll
               // runs — being told "pick two" would be most of the answer.
               'Choose every option you think is right.',
-              style: TextStyle(color: Color(0xff8b9cb3), fontSize: 12),
+              style: TextStyle(color: Color(0xff9aa0a6), fontSize: 12),
             ),
           ],
           const SizedBox(height: 16),
@@ -122,7 +122,7 @@ class _PollCardState extends State<PollCard> {
             const SizedBox(height: 8),
             Text(
               _error!,
-              style: const TextStyle(color: Color(0xffff8b8b), fontSize: 12),
+              style: const TextStyle(color: Color(0xfff28b82), fontSize: 12),
             ),
           ],
           if (canAnswer) ...[
@@ -166,11 +166,11 @@ class _Header extends StatelessWidget {
 
     return Row(
       children: [
-        const Icon(Icons.quiz_outlined, size: 16, color: Color(0xff9dc2ff)),
+        const Icon(Icons.quiz_outlined, size: 16, color: Color(0xff8ab4f8)),
         const SizedBox(width: 6),
         Text(
           'Question from ${poll.from}',
-          style: const TextStyle(color: Color(0xff9dc2ff), fontSize: 12),
+          style: const TextStyle(color: Color(0xff8ab4f8), fontSize: 12),
         ),
         const Spacer(),
         if (!closed)
@@ -183,7 +183,7 @@ class _Header extends StatelessWidget {
             child: Text(
               '${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}',
               style: TextStyle(
-                color: seconds <= 15 ? const Color(0xffff8b8b) : const Color(0xffb9c6d6),
+                color: seconds <= 15 ? const Color(0xfff28b82) : const Color(0xffe8eaed),
                 fontSize: 12,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
@@ -192,7 +192,7 @@ class _Header extends StatelessWidget {
         else
           const Text(
             'Closed',
-            style: TextStyle(color: Color(0xff8b9cb3), fontSize: 12),
+            style: TextStyle(color: Color(0xff9aa0a6), fontSize: 12),
           ),
       ],
     );
@@ -230,17 +230,17 @@ class _OptionTile extends StatelessWidget {
     final Color border;
     final Color fill;
     if (revealed && isCorrect) {
-      border = const Color(0xff35d07f);
+      border = const Color(0xff81c995);
       fill = const Color(0xff16301f);
     } else if (revealed && isMine) {
-      border = const Color(0xffff8b8b);
+      border = const Color(0xfff28b82);
       fill = const Color(0xff30181c);
     } else if (isMine) {
-      border = const Color(0xff2f6bd8);
-      fill = const Color(0xff16233a);
+      border = const Color(0xff1a73e8);
+      fill = const Color(0xff3c4043);
     } else {
-      border = const Color(0xff2a3547);
-      fill = const Color(0xff121a26);
+      border = const Color(0xff5f6368);
+      fill = const Color(0xff202124);
     }
 
     final counts = poll.counts;
@@ -287,14 +287,14 @@ class _OptionTile extends StatelessWidget {
                           picked ? Icons.check_box : Icons.check_box_outline_blank,
                           size: 19,
                           color: picked
-                              ? const Color(0xff5b9bff)
-                              : const Color(0xff6b7a8d),
+                              ? const Color(0xff8ab4f8)
+                              : const Color(0xff80868b),
                         )
                       else
                         Text(
                           String.fromCharCode(65 + index),
                           style: const TextStyle(
-                            color: Color(0xff8b9cb3),
+                            color: Color(0xff9aa0a6),
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
@@ -307,14 +307,14 @@ class _OptionTile extends StatelessWidget {
                         ),
                       ),
                       if (revealed && isCorrect)
-                        const Icon(Icons.check_circle, size: 18, color: Color(0xff35d07f)),
+                        const Icon(Icons.check_circle, size: 18, color: Color(0xff81c995)),
                       if (revealed && isMine && !isCorrect)
-                        const Icon(Icons.cancel, size: 18, color: Color(0xffff8b8b)),
+                        const Icon(Icons.cancel, size: 18, color: Color(0xfff28b82)),
                       if (counts != null) ...[
                         const SizedBox(width: 8),
                         Text(
                           '${counts[index]}',
-                          style: const TextStyle(color: Color(0xffb9c6d6), fontSize: 13),
+                          style: const TextStyle(color: Color(0xffe8eaed), fontSize: 13),
                         ),
                       ],
                     ],
@@ -343,7 +343,7 @@ class _Footer extends StatelessWidget {
           Icon(
             right ? Icons.emoji_events : Icons.school_outlined,
             size: 16,
-            color: right ? const Color(0xff35d07f) : const Color(0xff8b9cb3),
+            color: right ? const Color(0xff81c995) : const Color(0xff9aa0a6),
           ),
           const SizedBox(width: 6),
           Text(
@@ -351,7 +351,7 @@ class _Footer extends StatelessWidget {
                 ? (right ? 'Correct' : 'Not this time')
                 : 'You did not answer',
             style: TextStyle(
-              color: right ? const Color(0xff35d07f) : const Color(0xff8b9cb3),
+              color: right ? const Color(0xff81c995) : const Color(0xff9aa0a6),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -363,11 +363,11 @@ class _Footer extends StatelessWidget {
     if (poll.hasVoted) {
       return Row(
         children: [
-          const Icon(Icons.check, size: 16, color: Color(0xff35d07f)),
+          const Icon(Icons.check, size: 16, color: Color(0xff81c995)),
           const SizedBox(width: 6),
           Text(
             'Answer sent · ${poll.totalVotes} in the class have answered',
-            style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 12),
+            style: const TextStyle(color: Color(0xff9aa0a6), fontSize: 12),
           ),
         ],
       );
@@ -375,7 +375,7 @@ class _Footer extends StatelessWidget {
 
     return Text(
       '${poll.totalVotes} answered so far',
-      style: const TextStyle(color: Color(0xff8b9cb3), fontSize: 12),
+      style: const TextStyle(color: Color(0xff9aa0a6), fontSize: 12),
     );
   }
 }

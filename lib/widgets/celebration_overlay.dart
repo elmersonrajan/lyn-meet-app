@@ -159,10 +159,10 @@ class _AwardCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xff1e3a63), Color(0xff17202e)],
+          colors: [Color(0xff3c4043), Color(0xff2d2e31)],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xffffc44d), width: 2),
+        border: Border.all(color: const Color(0xfffdd663), width: 2),
         boxShadow: const [
           BoxShadow(color: Color(0x88000000), blurRadius: 30, offset: Offset(0, 10)),
         ],
@@ -217,10 +217,10 @@ class _Confetto {
   });
 
   static const _palette = [
-    Color(0xffffc44d),
-    Color(0xff35d07f),
-    Color(0xff5b9bff),
-    Color(0xffff8b8b),
+    Color(0xfffdd663),
+    Color(0xff81c995),
+    Color(0xff8ab4f8),
+    Color(0xfff28b82),
     Color(0xffffffff),
     Color(0xffb57bff),
   ];

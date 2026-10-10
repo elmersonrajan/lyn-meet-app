@@ -124,7 +124,7 @@ class _JoinScreenState extends State<JoinScreen> {
                         child: Row(
                           children: [
                             const Icon(Icons.error_outline,
-                                size: 18, color: Color(0xffff8b8b)),
+                                size: 18, color: Color(0xfff28b82)),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -159,7 +159,7 @@ class _JoinScreenState extends State<JoinScreen> {
                           ? 'You join muted. Your admin controls are in the class.'
                           : 'You join muted. Raise your hand when you want to speak.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xff7a8ba3), fontSize: 12.5),
+                      style: const TextStyle(color: Color(0xff9aa0a6), fontSize: 12.5),
                     ),
                   ],
                 ),
@@ -189,10 +189,10 @@ class _SignedInAs extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
       decoration: BoxDecoration(
-        color: const Color(0xff141d29),
+        color: const Color(0xff2d2e31),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: admin ? const Color(0xff2f6bd8) : const Color(0xff243043),
+          color: admin ? const Color(0xff1a73e8) : const Color(0xff3c4043),
         ),
       ),
       child: Row(
@@ -200,7 +200,7 @@ class _SignedInAs extends StatelessWidget {
           CircleAvatar(
             radius: 18,
             backgroundColor:
-                admin ? const Color(0xff2f6bd8) : const Color(0xff2b3648),
+                admin ? const Color(0xff1a73e8) : const Color(0xff3c4043),
             child: Text(
               _initials(user.name),
               style: const TextStyle(
@@ -227,7 +227,7 @@ class _SignedInAs extends StatelessWidget {
                 Text(
                   user.email,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color(0xff7a8ba3), fontSize: 11.5),
+                  style: const TextStyle(color: Color(0xff9aa0a6), fontSize: 11.5),
                 ),
               ],
             ),
@@ -236,13 +236,13 @@ class _SignedInAs extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: admin ? const Color(0xff1e3a63) : const Color(0xff222d3d),
+              color: admin ? const Color(0xff3c4043) : const Color(0xff3c4043),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               user.modeLabel,
               style: TextStyle(
-                color: admin ? const Color(0xff9dc2ff) : const Color(0xffb9c6d6),
+                color: admin ? const Color(0xff8ab4f8) : const Color(0xffe8eaed),
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -252,7 +252,7 @@ class _SignedInAs extends StatelessWidget {
             tooltip: 'Sign out',
             iconSize: 18,
             onPressed: () => context.read<AuthController>().signOut(),
-            icon: const Icon(Icons.logout, color: Color(0xff7a8ba3)),
+            icon: const Icon(Icons.logout, color: Color(0xff9aa0a6)),
           ),
         ],
       ),
@@ -298,7 +298,7 @@ class _Logo extends StatelessWidget {
             errorBuilder: (context, error, stack) => Icon(
               Icons.cast_for_education,
               size: size * 0.6,
-              color: const Color(0xff2f6bd8),
+              color: const Color(0xff1a73e8),
             ),
           ),
         ),

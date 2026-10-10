@@ -56,7 +56,7 @@ class SignInScreen extends StatelessWidget {
                         'coordinator to check your account on LYN India.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xff8b9cb3),
+                          color: Color(0xff9aa0a6),
                           fontSize: 13.5,
                           height: 1.45,
                         ),
@@ -120,7 +120,7 @@ class SignInScreen extends StatelessWidget {
                     'Opens inside the app. Your password goes to LYN India, '
                     'never through here.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xff6b7a8d), fontSize: 11.5),
+                    style: TextStyle(color: Color(0xff80868b), fontSize: 11.5),
                   ),
                 ],
               ),
@@ -160,7 +160,7 @@ class _Waiting extends StatelessWidget {
           'you back here, already signed in. This screen carries on by itself '
           'the moment it does.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xff8b9cb3), fontSize: 13, height: 1.45),
+          style: TextStyle(color: Color(0xff9aa0a6), fontSize: 13, height: 1.45),
         ),
       ],
     );
@@ -207,13 +207,13 @@ class _Step extends StatelessWidget {
             height: 22,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              color: Color(0xff1e3a63),
+              color: Color(0xff3c4043),
               shape: BoxShape.circle,
             ),
             child: Text(
               n,
               style: const TextStyle(
-                color: Color(0xff9dc2ff),
+                color: Color(0xff8ab4f8),
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
               ),
@@ -226,7 +226,7 @@ class _Step extends StatelessWidget {
               child: Text(
                 text,
                 style: const TextStyle(
-                  color: Color(0xffb9c6d6),
+                  color: Color(0xffe8eaed),
                   fontSize: 13.5,
                   height: 1.4,
                 ),
@@ -260,7 +260,7 @@ class _ErrorBox extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 1),
-            child: Icon(Icons.error_outline, size: 18, color: Color(0xffff8b8b)),
+            child: Icon(Icons.error_outline, size: 18, color: Color(0xfff28b82)),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -307,7 +307,7 @@ class _Logo extends StatelessWidget {
             errorBuilder: (context, error, stack) => Icon(
               Icons.cast_for_education,
               size: size * 0.6,
-              color: const Color(0xff2f6bd8),
+              color: const Color(0xff1a73e8),
             ),
           ),
         ),

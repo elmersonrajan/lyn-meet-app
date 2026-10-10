@@ -48,18 +48,18 @@ class ParticipantsList extends StatelessWidget {
               ),
               const Spacer(),
               if (meeting.thumbsDown > 0) ...[
-                const Icon(Icons.thumb_down, size: 13, color: Color(0xffff8b8b)),
+                const Icon(Icons.thumb_down, size: 13, color: Color(0xfff28b82)),
                 const SizedBox(width: 4),
                 Text(
                   '${meeting.thumbsDown}',
-                  style: const TextStyle(color: Color(0xffff8b8b), fontSize: 12),
+                  style: const TextStyle(color: Color(0xfff28b82), fontSize: 12),
                 ),
                 const SizedBox(width: 12),
               ],
               if (hands > 0)
                 Text(
                   '$hands hand${hands == 1 ? '' : 's'} up',
-                  style: const TextStyle(color: Color(0xffffc44d), fontSize: 12),
+                  style: const TextStyle(color: Color(0xfffdd663), fontSize: 12),
                 ),
             ],
           ),
@@ -113,7 +113,7 @@ class _PeerRow extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xffc0392b)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xffea4335)),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Remove'),
           ),
@@ -147,13 +147,13 @@ class _PeerRow extends StatelessWidget {
               height: 42,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xff35d07f), width: 2),
+                border: Border.all(color: const Color(0xff81c995), width: 2),
               ),
             ),
           CircleAvatar(
             radius: 16,
             backgroundColor:
-                peer.isStaff ? const Color(0xff2f6bd8) : const Color(0xff2b3648),
+                peer.isStaff ? const Color(0xff1a73e8) : const Color(0xff3c4043),
             child: Text(
               _initials(peer.name),
               style: const TextStyle(
@@ -183,12 +183,12 @@ class _PeerRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: const Color(0xff1e3a63),
+                color: const Color(0xff3c4043),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 label,
-                style: const TextStyle(color: Color(0xff9dc2ff), fontSize: 10),
+                style: const TextStyle(color: Color(0xff8ab4f8), fontSize: 10),
               ),
             ),
           ],
@@ -210,27 +210,27 @@ class _PeerRow extends StatelessWidget {
                 peer.isConfused ? Icons.thumb_down : Icons.thumb_up,
                 size: 15,
                 color: peer.isConfused
-                    ? const Color(0xffff8b8b)
-                    : const Color(0xff35d07f),
+                    ? const Color(0xfff28b82)
+                    : const Color(0xff81c995),
               ),
             ),
           if (peer.handRaised)
             const Padding(
               padding: EdgeInsets.only(right: 8),
-              child: Icon(Icons.back_hand, size: 16, color: Color(0xffffc44d)),
+              child: Icon(Icons.back_hand, size: 16, color: Color(0xfffdd663)),
             ),
           Icon(
             peer.audioMuted ? Icons.mic_off : Icons.mic,
             size: 16,
             color: peer.audioMuted
-                ? const Color(0xff6b7a8d)
-                : (isSpeaking ? const Color(0xff35d07f) : const Color(0xffb9c6d6)),
+                ? const Color(0xff80868b)
+                : (isSpeaking ? const Color(0xff81c995) : const Color(0xffe8eaed)),
           ),
           if (_canAct)
             PopupMenuButton<String>(
               tooltip: 'Manage ${peer.name}',
               iconSize: 18,
-              icon: const Icon(Icons.more_vert, color: Color(0xff7a8ba3)),
+              icon: const Icon(Icons.more_vert, color: Color(0xff9aa0a6)),
               onSelected: (choice) async {
                 if (choice == 'lower') {
                   await meeting.lowerHand(peer.id);
