@@ -20,7 +20,12 @@ class StageView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mode = meeting.stageMode;
-    final showScreen = mode == 'screen' && meeting.media.hasScreen;
+    // A screen share that is attached but not drawing is worse than no screen
+    // share: the stage would sit blank while the lesson carries on. Falling
+    // back to the board at least keeps whatever the teacher is writing.
+    final showScreen = mode == 'screen' &&
+        meeting.media.hasScreen &&
+        !meeting.media.screenStalled;
 
     // A clip takes the stage whether or not the mode says so: the teacher
     // starting one is the instruction, and a student staring at a whiteboard

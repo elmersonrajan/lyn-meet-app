@@ -3,6 +3,9 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../services/mediasoup_service.dart';
 
+/// How a renderer is pointed at a track. See [MediaController._point].
+enum _Point { stream, trackId, ownStream }
+
 /// What the student can see and hear, and whether their microphone is live.
 ///
 /// Holds the two video renderers for the lesson — the staff camera and the
@@ -182,12 +185,35 @@ class MediaController extends ChangeNotifier {
     // arrived shortly after, the other way is tried. Audio was never affected
     // by any of this, which is why a class could be perfectly audible with
     // every video surface black.
-    final preferStream = !track.selectByTrackId;
-    var ok = await _tryPoint(renderer, track, byStream: preferStream);
-    if (!ok) {
-      debugPrint('[Media] no frames via '
-          '${preferStream ? "stream" : "track id"} — trying the other way');
-      ok = await _tryPoint(renderer, track, byStream: !preferStream);
+    // Three ways, tried in the order most likely to work for this track.
+    //
+    // When a peer publishes one video track, handing over the stream is right
+    // and simplest. When a peer publishes two — a teacher with a camera *and*
+    // a screen share — they arrive in the same stream, because mediasoup gives
+    // all of one peer's producers the same RTCP cname. Then handing over the
+    // stream draws whichever track is first, so both renderers show the camera
+    // and the shared screen is nowhere: exactly what a class sees as "the
+    // screen share is not showing".
+    //
+    // Naming the track is the precise answer and cannot be relied on: it
+    // resolves through a registry that comes back empty often enough to have
+    // caused an evening of black rectangles.
+    //
+    // So for a colliding track there is a third way — put that one track in a
+    // stream of its own and render that. Nothing can be first in a stream of
+    // one.
+    final order = track.selectByTrackId
+        ? const [_Point.ownStream, _Point.trackId, _Point.stream]
+        : const [_Point.stream, _Point.trackId, _Point.ownStream];
+
+    var ok = false;
+    for (final how in order) {
+      ok = await _tryPoint(renderer, track, how);
+      if (ok) {
+        debugPrint('[Media] ${track.slot.name} drawing via ${how.name}');
+        break;
+      }
+      debugPrint('[Media] ${track.slot.name}: no frames via ${how.name}');
     }
 
     final stalled = !ok;
@@ -202,23 +228,40 @@ class MediaController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A stream built to hold exactly one track, kept per renderer so it can be
+  /// taken away again when that renderer moves on.
+  final Map<TrackSlot, MediaStream> _ownStreams = {};
+
   /// Points one way and reports whether frames actually turned up.
   Future<bool> _tryPoint(
     RTCVideoRenderer renderer,
-    RemoteTrack track, {
-    required bool byStream,
-  }) async {
+    RemoteTrack track,
+    _Point how,
+  ) async {
     try {
-      if (byStream) {
-        renderer.srcObject = track.stream;
-      } else {
-        await renderer.setSrcObject(
-          stream: track.stream,
-          trackId: track.track.id,
-        );
+      switch (how) {
+        case _Point.stream:
+          renderer.srcObject = track.stream;
+
+        case _Point.trackId:
+          await renderer.setSrcObject(
+            stream: track.stream,
+            trackId: track.track.id,
+          );
+
+        case _Point.ownStream:
+          // addTrack reaches the native side, which resolves a remote track
+          // across every peer connection rather than only the one the stream
+          // claims — the lookup that makes naming a track unreliable does not
+          // apply here.
+          final own = await createLocalMediaStream('lyn_${track.producerId}');
+          await own.addTrack(track.track);
+          await _releaseOwnStream(track.slot);
+          _ownStreams[track.slot] = own;
+          renderer.srcObject = own;
       }
     } catch (err) {
-      debugPrint('[Media] could not point the renderer: $err');
+      debugPrint('[Media] could not point the renderer (${how.name}): $err');
       return false;
     }
 
@@ -244,17 +287,32 @@ class MediaController extends ChangeNotifier {
         _cameraProducerId = null;
         _cameraPeerId = null;
         _hasCamera = false;
+        _cameraStalled = false;
         notifyListeners();
         await cameraRenderer.setSrcObject(stream: null);
+        await _releaseOwnStream(TrackSlot.camera);
       case TrackSlot.screen:
         if (_screenProducerId != track.producerId) return;
         _screenProducerId = null;
         _hasScreen = false;
+        _screenStalled = false;
         notifyListeners();
         await screenRenderer.setSrcObject(stream: null);
+        await _releaseOwnStream(TrackSlot.screen);
       case TrackSlot.audio:
         _audioTracks.remove(track.producerId);
         notifyListeners();
+    }
+  }
+
+  /// Disposes a stream this class built, if there is one for that slot.
+  Future<void> _releaseOwnStream(TrackSlot slot) async {
+    final existing = _ownStreams.remove(slot);
+    if (existing == null) return;
+    try {
+      await existing.dispose();
+    } catch (_) {
+      // Already gone with the peer connection that fed it.
     }
   }
 
@@ -276,6 +334,9 @@ class MediaController extends ChangeNotifier {
     notifyListeners();
     await cameraRenderer.setSrcObject(stream: null);
     await screenRenderer.setSrcObject(stream: null);
+    for (final slot in _ownStreams.keys.toList()) {
+      await _releaseOwnStream(slot);
+    }
   }
 
   void setMicOn(bool value) {
