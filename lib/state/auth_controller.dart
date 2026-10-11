@@ -80,34 +80,33 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  /// Opens the platform sign-in, inside the app where the platform allows it.
+  /// Opens the platform sign-in in the browser as a separate app.
   ///
-  /// A Custom Tab on Android, a Safari view on iOS: it sits on top of the app
-  /// rather than switching to another one, it is themed, and it closes itself.
-  /// Crucially it shares the browser's own cookies, so somebody already signed
-  /// in to lynindia.in goes straight through without seeing a login form.
+  /// A Custom Tab would look better and cannot work here, which is worth
+  /// writing down because it is not obvious and it was tried.
   ///
-  /// It is not a WebView, and that is not a preference. The platform signs in
-  /// with Google, and Google refuses OAuth inside an embedded WebView
-  /// (`disallowed_useragent`) precisely because the host app could read what is
-  /// typed — so a login page rendered inside this app would be turned away by
-  /// Google, not by us. A Custom Tab is a real browser and is allowed.
+  /// A Custom Tab belongs to the app that opened it, and Chrome deliberately
+  /// does not hand a link back to that same app — otherwise every link would
+  /// bounce in a loop. So the class address opens *in the tab*, and the web
+  /// client there reads the sign-in token while its module is still loading
+  /// and spends it. The app is left waiting for a token that was consumed in
+  /// front of it, and every later attempt is genuinely stale: hence "this
+  /// sign-in link has expired or was already used", every single time.
   ///
-  /// Falls back to the full browser if no Custom Tab provider is installed,
-  /// which is unusual but happens on stripped-down devices.
+  /// The browser as its own app honours the verified App Link instead, and
+  /// hands the address over *without loading the page*, so the token arrives
+  /// here unspent. Leaving the app for a moment is the price of that.
+  ///
+  /// It is still never a WebView. The platform signs in with Google, and
+  /// Google refuses OAuth inside an embedded WebView — on the grounds that the
+  /// host app could read what is typed, which is a good reason to agree.
   Future<bool> startSignIn({String? meetingId}) async {
     _error = null;
     _failure = null;
     try {
       final uri = await _service.loginUri(meetingId: meetingId);
 
-      var launched = false;
-      try {
-        launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-      } catch (err) {
-        debugPrint('[Auth] no in-app browser, using the full one: $err');
-      }
-      launched = launched ||
+      final launched =
           await launchUrl(uri, mode: LaunchMode.externalApplication);
 
       if (!launched) {

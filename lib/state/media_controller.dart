@@ -147,6 +147,15 @@ class MediaController extends ChangeNotifier {
   ///
   /// So the precise form is used only when it earns its risk — a peer with a
   /// camera and a screen share at once.
+  /// Whether a video track is attached but no frames are reaching the screen.
+  ///
+  /// Exposed so a black tile can say so instead of looking like a fault in the
+  /// lesson. Nothing recovers from this silently without telling anybody.
+  bool _cameraStalled = false;
+  bool _screenStalled = false;
+  bool get cameraStalled => _cameraStalled;
+  bool get screenStalled => _screenStalled;
+
   Future<void> _point(RTCVideoRenderer renderer, RemoteTrack track) async {
     // Logged because a black tile has two completely different causes and they
     // are indistinguishable on screen: either no track ever arrived, or one
@@ -158,14 +167,69 @@ class MediaController extends ChangeNotifier {
       '(byTrackId: ${track.selectByTrackId}, enabled: ${track.track.enabled})',
     );
 
-    if (track.selectByTrackId) {
-      await renderer.setSrcObject(
-        stream: track.stream,
-        trackId: track.track.id,
-      );
-      return;
+    // Two ways to point a renderer at a track, and which one works depends on
+    // things this app cannot see.
+    //
+    // Handing over the stream makes the native side look it up by id and owner
+    // and draw its first video track. Naming the track makes it resolve the
+    // track through the peer connection's transceivers instead. Each can come
+    // back empty under conditions the other survives — a stream the native
+    // registry does not hold, or a track id it cannot resolve — and an empty
+    // result is a black rectangle with no error anywhere.
+    //
+    // So rather than pick one and hope, the preferred way is tried and then
+    // *checked*: a renderer that has frames reports their size. If nothing has
+    // arrived shortly after, the other way is tried. Audio was never affected
+    // by any of this, which is why a class could be perfectly audible with
+    // every video surface black.
+    final preferStream = !track.selectByTrackId;
+    var ok = await _tryPoint(renderer, track, byStream: preferStream);
+    if (!ok) {
+      debugPrint('[Media] no frames via '
+          '${preferStream ? "stream" : "track id"} — trying the other way');
+      ok = await _tryPoint(renderer, track, byStream: !preferStream);
     }
-    renderer.srcObject = track.stream;
+
+    final stalled = !ok;
+    if (track.slot == TrackSlot.camera) {
+      _cameraStalled = stalled;
+    } else if (track.slot == TrackSlot.screen) {
+      _screenStalled = stalled;
+    }
+    if (stalled) {
+      debugPrint('[Media] ${track.slot.name}: attached but no frames arrived');
+    }
+    notifyListeners();
+  }
+
+  /// Points one way and reports whether frames actually turned up.
+  Future<bool> _tryPoint(
+    RTCVideoRenderer renderer,
+    RemoteTrack track, {
+    required bool byStream,
+  }) async {
+    try {
+      if (byStream) {
+        renderer.srcObject = track.stream;
+      } else {
+        await renderer.setSrcObject(
+          stream: track.stream,
+          trackId: track.track.id,
+        );
+      }
+    } catch (err) {
+      debugPrint('[Media] could not point the renderer: $err');
+      return false;
+    }
+
+    // Frames do not arrive instantly: the consumer has to be resumed and a
+    // keyframe has to come down. Checked repeatedly over a couple of seconds
+    // rather than once, so a slow connection is not mistaken for a broken one.
+    for (var i = 0; i < 12; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      if (renderer.value.width > 0 && renderer.value.height > 0) return true;
+    }
+    return false;
   }
 
   /// Drops a track whose producer has gone.
@@ -206,6 +270,8 @@ class MediaController extends ChangeNotifier {
     _cameraPeerId = null;
     _hasCamera = false;
     _hasScreen = false;
+    _cameraStalled = false;
+    _screenStalled = false;
     _audioTracks.clear();
     notifyListeners();
     await cameraRenderer.setSrcObject(stream: null);

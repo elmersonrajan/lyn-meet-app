@@ -99,6 +99,11 @@ class _TeacherInsetState extends State<TeacherInset> {
               // teacher, indistinguishable from a hung app.
               if (meeting.cameraOff)
                 _CameraOff(name: meeting.cameraPeerName)
+              // Attached, resumed, and still nothing on screen. Saying so is
+              // the difference between a bug somebody can report and a black
+              // rectangle they assume is the lesson.
+              else if (meeting.media.cameraStalled)
+                const _VideoStalled()
               else
                 RTCVideoView(
                   meeting.media.cameraRenderer,
@@ -249,6 +254,36 @@ class _RoundButton extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             child: Icon(icon, size: 20, color: Colors.white),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Shown when a video track is attached but no frames are reaching the screen.
+class _VideoStalled extends StatelessWidget {
+  const _VideoStalled();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xff2d2e31),
+      alignment: Alignment.center,
+      child: const Padding(
+        padding: EdgeInsets.all(8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_off_outlined,
+                size: 18, color: LynColors.textSecondary),
+            SizedBox(height: 6),
+            Text(
+              'Video is not coming through',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: LynColors.textSecondary, fontSize: 10.5),
+            ),
+          ],
         ),
       ),
     );
